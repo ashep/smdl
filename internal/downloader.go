@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -10,12 +11,71 @@ import (
 	"strings"
 )
 
+// jsonCookie matches the JSON format exported by browser cookie extensions.
+type jsonCookie struct {
+	Domain         string  `json:"domain"`
+	ExpirationDate float64 `json:"expirationDate"`
+	HostOnly       bool    `json:"hostOnly"`
+	HTTPOnly       bool    `json:"httpOnly"`
+	Name           string  `json:"name"`
+	Path           string  `json:"path"`
+	Secure         bool    `json:"secure"`
+	Session        bool    `json:"session"`
+	Value          string  `json:"value"`
+}
+
+// jsonCookiesToNetscape converts a JSON cookie list to a Netscape cookies file
+// written to a temporary file, returning its path. The caller must delete it.
+func jsonCookiesToNetscape(jsonPath string) (string, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return "", fmt.Errorf("read cookies file: %w", err)
+	}
+
+	var cookies []jsonCookie
+	if err := json.Unmarshal(data, &cookies); err != nil {
+		return "", fmt.Errorf("parse cookies JSON: %w", err)
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("# Netscape HTTP Cookie File\n")
+	for _, c := range cookies {
+		includeSubdomains := "FALSE"
+		if strings.HasPrefix(c.Domain, ".") {
+			includeSubdomains = "TRUE"
+		}
+		secure := "FALSE"
+		if c.Secure {
+			secure = "TRUE"
+		}
+		expiry := int64(0)
+		if !c.Session {
+			expiry = int64(c.ExpirationDate)
+		}
+		fmt.Fprintf(&buf, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+			c.Domain, includeSubdomains, c.Path, secure, expiry, c.Name, c.Value)
+	}
+
+	tmp, err := os.CreateTemp("", "smdl-cookies-*.txt")
+	if err != nil {
+		return "", fmt.Errorf("create temp cookies file: %w", err)
+	}
+	if _, err := tmp.Write(buf.Bytes()); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return "", fmt.Errorf("write temp cookies file: %w", err)
+	}
+	tmp.Close()
+	return tmp.Name(), nil
+}
+
 // GetInstagram downloads all media from an Instagram URL into a subdirectory
 // of destDir and returns the subdirectory path.
 //
 // It shells out to yt-dlp which must be installed on the system.
-// If the environment variable INSTAGRAM_COOKIES_FILE is set, its value is
-// passed to yt-dlp as a Netscape cookies file for authenticated downloads.
+// If the environment variable INSTAGRAM_COOKIES_FILE is set, it must point to
+// a JSON cookies file (as exported by browser extensions). The cookies are
+// converted to Netscape format and passed to yt-dlp for authenticated downloads.
 func GetInstagram(rawURL, destDir string) (string, error) {
 	// Validate the URL and derive a safe directory name from the path.
 	u, err := url.Parse(rawURL)
@@ -23,7 +83,7 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 		return "", fmt.Errorf("invalid URL: %q", rawURL)
 	}
 
-	// Build a filesystem-safe name from the URL path (e.g. "/p/ABC123/" -> "ABC123").
+	// Build a filesystem-safe name from the URL path (e.g. "/p/ABC123/" -> "p_ABC123").
 	slug := strings.Trim(u.Path, "/")
 	slug = strings.ReplaceAll(slug, "/", "_")
 	if slug == "" {
@@ -51,12 +111,14 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 		"--no-playlist",
 	}
 
-	if cookiesFile := os.Getenv("INSTAGRAM_COOKIES_FILE"); cookiesFile != "" {
-		if _, err := os.Stat(cookiesFile); err != nil {
-			downloadErr = fmt.Errorf("INSTAGRAM_COOKIES_FILE %q: %w", cookiesFile, err)
+	if jsonPath := os.Getenv("INSTAGRAM_COOKIES_FILE"); jsonPath != "" {
+		netscapePath, err := jsonCookiesToNetscape(jsonPath)
+		if err != nil {
+			downloadErr = fmt.Errorf("INSTAGRAM_COOKIES_FILE: %w", err)
 			return "", downloadErr
 		}
-		args = append(args, "--cookies", cookiesFile)
+		defer os.Remove(netscapePath)
+		args = append(args, "--cookies", netscapePath)
 	}
 
 	args = append(args, rawURL)
