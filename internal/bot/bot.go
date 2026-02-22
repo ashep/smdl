@@ -127,6 +127,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		return fmt.Errorf("read download dir: %w", err)
 	}
 
+	const tgMaxFileSize = 50 * 1024 * 1024 // 50 MB — Telegram bot upload limit
+
 	var totalSize int64
 	var media []interface{}
 	for _, entry := range entries {
@@ -137,6 +139,19 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		if err != nil {
 			return fmt.Errorf("stat %s: %w", entry.Name(), err)
 		}
+
+		if info.Size() > tgMaxFileSize {
+			l.Warn().
+				Str("file", entry.Name()).
+				Str("size", fmt.Sprintf("%.2f MB", float64(info.Size())/1024/1024)).
+				Msg("file exceeds Telegram limit, skipping")
+			notice := fmt.Sprintf("File %s (%.2f MB) exceeds Telegram's 50 MB limit and cannot be sent.", entry.Name(), float64(info.Size())/1024/1024)
+			if _, err := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, notice)); err != nil {
+				l.Error().Err(err).Msg("failed to send size limit notice")
+			}
+			continue
+		}
+
 		totalSize += info.Size()
 
 		path := filepath.Join(dstDir, entry.Name())
