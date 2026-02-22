@@ -108,7 +108,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 	switch {
 	case strings.Contains(u.Host, "instagram.com"):
 		download = func() (string, error) { return b.dl.GetInstagram(rawURL) }
-	case strings.Contains(u.Host, "youtube.com"):
+	case strings.Contains(u.Host, "youtube.com"), strings.Contains(u.Host, "youtu.be"):
 		download = func() (string, error) { return b.dl.GetYouTube(rawURL) }
 	default:
 		l.Info().Str("host", u.Host).Msg("unsupported URL, skipping")
