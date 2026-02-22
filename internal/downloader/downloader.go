@@ -1,4 +1,4 @@
-package internal
+package downloader
 
 import (
 	"bytes"
@@ -141,6 +141,46 @@ func GetInstagram(rawURL, dstDir string) (string, error) {
 		gdlArgs = append(gdlArgs, rawURL)
 		errMsg, err = runCmd("gallery-dl", gdlArgs)
 	}
+	if err != nil {
+		downloadErr = fmt.Errorf("%s", errMsg)
+		return "", downloadErr
+	}
+
+	return subDir, nil
+}
+
+// GetYouTubeShort downloads a YouTube Shorts video into a subdirectory of
+// dstDir and returns the subdirectory path.
+//
+// It shells out to yt-dlp which must be installed on the system.
+func GetYouTubeShort(rawURL, dstDir string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return "", fmt.Errorf("invalid URL: %q", rawURL)
+	}
+
+	// Build a filesystem-safe name from the URL path (e.g. "/shorts/ABC123" -> "shorts_ABC123").
+	slug := strings.Trim(u.Path, "/")
+	slug = strings.ReplaceAll(slug, "/", "_")
+	if slug == "" {
+		slug = "youtube"
+	}
+
+	subDir := filepath.Join(dstDir, slug)
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		return "", fmt.Errorf("create dest dir: %w", err)
+	}
+
+	var downloadErr error
+	defer func() {
+		if downloadErr != nil {
+			os.RemoveAll(subDir)
+		}
+	}()
+
+	outputTmpl := filepath.Join(subDir, "%(title)s.%(ext)s")
+
+	errMsg, err := runCmd("yt-dlp", []string{"--output", outputTmpl, rawURL})
 	if err != nil {
 		downloadErr = fmt.Errorf("%s", errMsg)
 		return "", downloadErr
