@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -26,7 +27,16 @@ func Run(rt *runner.Runtime[Config]) error {
 		}
 	}()
 
-	dl, err := downloader.New(dstDir, cfg.Instagram.Cookies, l)
+	igCookies := cfg.Instagram.Cookies
+	if igCookies == "" && cfg.Instagram.Cookies64 != "" {
+		decoded, derr := base64.StdEncoding.DecodeString(cfg.Instagram.Cookies64)
+		if derr != nil {
+			return fmt.Errorf("decode instagram cookies64: %w", derr)
+		}
+		igCookies = string(decoded)
+	}
+
+	dl, err := downloader.New(dstDir, igCookies, l)
 	if err != nil {
 		return fmt.Errorf("new downloader: %w", err)
 	}
