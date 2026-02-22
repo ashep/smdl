@@ -116,9 +116,9 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 	}()
 
 	dstDir, err := download()
-	close(stopTyping)
 
 	if err != nil {
+		close(stopTyping)
 		l.Error().Err(err).Msg("download failed")
 		return nil
 	}
@@ -194,6 +194,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 			l.Warn().Str("file", entry.Name()).Msg("skipping unsupported file type")
 		}
 	}
+
+	close(stopTyping)
 
 	if len(media) == 0 {
 		l.Warn().Msg("no files downloaded")
