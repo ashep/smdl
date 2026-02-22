@@ -18,9 +18,15 @@ func Run(rt *runner.Runtime[Config]) error {
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(dstDir)
+	defer func() {
+		if err := os.RemoveAll(dstDir); err != nil {
+			l.Err(err).Str("path", dstDir).Msg("remove temp dir")
+		} else {
+			l.Info().Str("path", dstDir).Msg("temp dir removed")
+		}
+	}()
 
-	dl, err := downloader.New(dstDir, cfg.Instagram.CookiesFile)
+	dl, err := downloader.New(dstDir, cfg.Instagram.CookiesFile, l)
 	if err != nil {
 		return fmt.Errorf("new downloader: %w", err)
 	}

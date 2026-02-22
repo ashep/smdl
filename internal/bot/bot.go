@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog"
@@ -86,16 +87,34 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		return nil
 	}
 
-	var dstDir string
+	var download func() (string, error)
 	switch {
 	case strings.Contains(u.Host, "instagram.com"):
-		dstDir, err = b.dl.GetInstagram(rawURL)
+		download = func() (string, error) { return b.dl.GetInstagram(rawURL) }
 	case strings.Contains(u.Host, "youtube.com"):
-		dstDir, err = b.dl.GetYouTube(rawURL)
+		download = func() (string, error) { return b.dl.GetYouTube(rawURL) }
 	default:
 		l.Info().Str("host", u.Host).Msg("unsupported URL, skipping")
 		return nil
 	}
+
+	// Send "Typing..." every 4s while downloading (Telegram clears it after ~5s).
+	stopTyping := make(chan struct{})
+	go func() {
+		for {
+			if _, err := b.bot.Request(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)); err != nil {
+				l.Warn().Err(err).Msg("failed to send chat action")
+			}
+			select {
+			case <-stopTyping:
+				return
+			case <-time.After(4 * time.Second):
+			}
+		}
+	}()
+
+	dstDir, err := download()
+	close(stopTyping)
 
 	if err != nil {
 		l.Error().Err(err).Msg("download failed")
