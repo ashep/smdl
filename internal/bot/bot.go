@@ -1,10 +1,12 @@
 package bot
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -140,7 +142,36 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 			return fmt.Errorf("stat %s: %w", entry.Name(), err)
 		}
 
+		path := filepath.Join(dstDir, entry.Name())
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+
 		if info.Size() > tgMaxFileSize {
+			switch ext {
+			case ".mp4", ".webm", ".mkv", ".mov", ".avi":
+				l.Info().
+					Str("file", entry.Name()).
+					Str("size", fmt.Sprintf("%.2f MB", float64(info.Size())/1024/1024)).
+					Msg("file too large, compressing")
+
+				compressed, cerr := compressVideo(path)
+				if cerr != nil {
+					l.Error().Err(cerr).Msg("compression failed")
+				} else {
+					defer os.Remove(compressed)
+					cinfo, serr := os.Stat(compressed)
+					if serr == nil && cinfo.Size() <= tgMaxFileSize {
+						l.Info().
+							Str("size", fmt.Sprintf("%.2f MB", float64(cinfo.Size())/1024/1024)).
+							Msg("compression succeeded")
+						totalSize += cinfo.Size()
+						media = append(media, tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(compressed)))
+						continue
+					}
+					l.Warn().Msg("compressed file still too large")
+					os.Remove(compressed)
+				}
+			}
+
 			l.Warn().
 				Str("file", entry.Name()).
 				Str("size", fmt.Sprintf("%.2f MB", float64(info.Size())/1024/1024)).
@@ -154,8 +185,6 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 
 		totalSize += info.Size()
 
-		path := filepath.Join(dstDir, entry.Name())
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
 		switch ext {
 		case ".mp4", ".webm", ".mkv", ".mov", ".avi":
 			media = append(media, tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(path)))
@@ -163,7 +192,6 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 			media = append(media, tgbotapi.NewInputMediaPhoto(tgbotapi.FilePath(path)))
 		default:
 			l.Warn().Str("file", entry.Name()).Msg("skipping unsupported file type")
-			continue
 		}
 	}
 
@@ -190,4 +218,35 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 	}
 
 	return nil
+}
+
+// compressVideo re-encodes a video to 720p at CRF 28 using ffmpeg,
+// writing the result to a temp file and returning its path.
+func compressVideo(inputPath string) (string, error) {
+	tmp, err := os.CreateTemp("", "smdl-compressed-*.mp4")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	tmp.Close()
+
+	var stderr bytes.Buffer
+	cmd := exec.Command("ffmpeg",
+		"-i", inputPath,
+		"-vf", "scale=-2:720",
+		"-c:v", "libx264",
+		"-crf", "28",
+		"-preset", "fast",
+		"-c:a", "aac",
+		"-b:a", "128k",
+		"-y",
+		tmp.Name(),
+	)
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		os.Remove(tmp.Name())
+		return "", fmt.Errorf("%s", strings.TrimSpace(stderr.String()))
+	}
+
+	return tmp.Name(), nil
 }
