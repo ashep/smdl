@@ -82,6 +82,20 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 
 	l.Info().Str("text", msg.Text).Msg("incoming message")
 
+	if msg.IsCommand() {
+		switch msg.Command() {
+		case "start":
+			welcome := "👋 Hello! Send me an Instagram or YouTube Shorts link and I'll download the media for you."
+			_, err := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, welcome))
+			if err != nil {
+				l.Error().Err(err).Msg("failed to send welcome message")
+			}
+		default:
+			l.Info().Str("command", msg.Command()).Msg("unknown command, ignoring")
+		}
+		return nil
+	}
+
 	rawURL := strings.TrimSpace(msg.Text)
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {
