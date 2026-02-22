@@ -16,16 +16,20 @@ type Downloader struct {
 }
 
 func New(dstDir, instagramCookiesJSON string, l zerolog.Logger) (*Downloader, error) {
+	if instagramCookiesJSON == "" {
+		return nil, fmt.Errorf("instagram cookies json is required")
+	}
+
 	d := &Downloader{dstDir: dstDir, l: l}
 
 	cfn, err := d.jsonCookiesToNetscape(instagramCookiesJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load instagram cookies: %v", err)
 	}
+	d.cookiesFilename = cfn
 
 	l.Info().Msgf("instagram cookies loaded to %s", cfn)
 
-	d.cookiesFilename = cfn
 	return d, nil
 }
 
