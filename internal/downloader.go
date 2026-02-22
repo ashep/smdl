@@ -35,6 +35,15 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 		return "", fmt.Errorf("create dest dir: %w", err)
 	}
 
+	// Clean up the subdirectory if we return an error, to avoid leaving empty
+	// directories behind on failed downloads.
+	var downloadErr error
+	defer func() {
+		if downloadErr != nil {
+			os.RemoveAll(subDir)
+		}
+	}()
+
 	outputTmpl := filepath.Join(subDir, "%(title)s.%(ext)s")
 
 	args := []string{
@@ -43,12 +52,17 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 	}
 
 	if cookiesFile := os.Getenv("INSTAGRAM_COOKIES_FILE"); cookiesFile != "" {
+		if _, err := os.Stat(cookiesFile); err != nil {
+			downloadErr = fmt.Errorf("INSTAGRAM_COOKIES_FILE %q: %w", cookiesFile, err)
+			return "", downloadErr
+		}
 		args = append(args, "--cookies", cookiesFile)
 	}
 
 	args = append(args, rawURL)
 
 	cmd := exec.Command("yt-dlp", args...)
+	// Stdout is intentionally discarded; yt-dlp writes downloaded files to disk.
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -57,7 +71,8 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 		if msg == "" {
 			msg = err.Error()
 		}
-		return "", fmt.Errorf("yt-dlp: %s", msg)
+		downloadErr = fmt.Errorf("yt-dlp: %s", msg)
+		return "", downloadErr
 	}
 
 	return subDir, nil
