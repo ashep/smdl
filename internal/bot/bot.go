@@ -201,7 +201,17 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		totalSize += info.Size()
 
 		switch ext {
-		case ".mp4", ".webm", ".mkv", ".mov", ".avi":
+		case ".webm", ".mkv", ".mov", ".avi":
+			l.Info().Str("file", entry.Name()).Msg("converting to mp4")
+			converted, cerr := convertToMP4(path)
+			if cerr != nil {
+				l.Error().Err(cerr).Msg("mp4 conversion failed, sending as document")
+				media = append(media, tgbotapi.NewInputMediaDocument(tgbotapi.FilePath(path)))
+			} else {
+				defer os.Remove(converted)
+				media = append(media, tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(converted)))
+			}
+		case ".mp4":
 			media = append(media, tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(path)))
 		case ".jpg", ".jpeg", ".png", ".webp", ".heic", ".gif":
 			media = append(media, tgbotapi.NewInputMediaPhoto(tgbotapi.FilePath(path)))
@@ -255,6 +265,37 @@ func compressVideo(inputPath string) (string, error) {
 		"-preset", "fast",
 		"-c:a", "aac",
 		"-b:a", "128k",
+		"-y",
+		tmp.Name(),
+	)
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		os.Remove(tmp.Name())
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			return "", err
+		}
+		return "", fmt.Errorf("%s", msg)
+	}
+
+	return tmp.Name(), nil
+}
+
+// convertToMP4 remuxes or re-encodes a video to MP4/H.264 so Telegram plays
+// it inline. Returns the path to a temp file the caller must delete.
+func convertToMP4(inputPath string) (string, error) {
+	tmp, err := os.CreateTemp("", "smdl-converted-*.mp4")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	tmp.Close()
+
+	var stderr bytes.Buffer
+	cmd := exec.Command("ffmpeg",
+		"-i", inputPath,
+		"-c:v", "libx264",
+		"-c:a", "aac",
 		"-y",
 		tmp.Name(),
 	)
