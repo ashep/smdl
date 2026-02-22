@@ -127,11 +127,18 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		return fmt.Errorf("read download dir: %w", err)
 	}
 
+	var totalSize int64
 	var media []interface{}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
+		info, err := entry.Info()
+		if err != nil {
+			return fmt.Errorf("stat %s: %w", entry.Name(), err)
+		}
+		totalSize += info.Size()
+
 		path := filepath.Join(dstDir, entry.Name())
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
 		switch ext {
@@ -146,6 +153,11 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		l.Warn().Msg("no files downloaded")
 		return nil
 	}
+
+	l.Info().
+		Int("files", len(media)).
+		Str("total_size", fmt.Sprintf("%.2f MB", float64(totalSize)/1024/1024)).
+		Msg("downloaded")
 
 	// Telegram allows at most 10 items per media group.
 	for i := 0; i < len(media); i += 10 {
