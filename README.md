@@ -28,14 +28,13 @@ telegram:
   token: YOUR_TELEGRAM_BOT_TOKEN
 
 instagram:
-  cookies_file: cookies.json
+  cookies: |
+    [{"domain": ".instagram.com", "name": "sessionid", "value": "...", ...}]
 ```
 
 ### Instagram cookies
 
-Instagram requires authentication. Export your browser cookies using an extension
-like [EditThisCookie](https://chromewebstore.google.com/detail/EditThisCookie%20%28V3%29/ojfebgpkimhlhcblbalbfjblapadhbol)
-and save the result as `cookies.json` next to `config.yml`.
+Instagram requires authentication. Export your browser cookies as JSON using an extension like [EditThisCookie](https://chromewebstore.google.com/detail/EditThisCookie%20%28V3%29/ojfebgpkimhlhcblbalbfjblapadhbol) and paste the JSON array as the value of `instagram.cookies` in `config.yml`.
 
 ## Running
 

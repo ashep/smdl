@@ -26,7 +26,7 @@ func Run(rt *runner.Runtime[Config]) error {
 		}
 	}()
 
-	dl, err := downloader.New(dstDir, cfg.Instagram.CookiesFile, l)
+	dl, err := downloader.New(dstDir, cfg.Instagram.Cookies, l)
 	if err != nil {
 		return fmt.Errorf("new downloader: %w", err)
 	}

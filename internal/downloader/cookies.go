@@ -23,14 +23,9 @@ type jsonCookie struct {
 
 // jsonCookiesToNetscape converts a JSON cookie list to a Netscape cookies file
 // written to a temporary file, returning its path. The caller must delete it.
-func (d *Downloader) jsonCookiesToNetscape(jsonPath string) (string, error) {
-	data, err := os.ReadFile(jsonPath)
-	if err != nil {
-		return "", fmt.Errorf("read cookies file: %w", err)
-	}
-
+func (d *Downloader) jsonCookiesToNetscape(jsonContent string) (string, error) {
 	var cookies []jsonCookie
-	if err := json.Unmarshal(data, &cookies); err != nil {
+	if err := json.Unmarshal([]byte(jsonContent), &cookies); err != nil {
 		return "", fmt.Errorf("parse cookies JSON: %w", err)
 	}
 

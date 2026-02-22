@@ -5,7 +5,7 @@ type Telegram struct {
 }
 
 type Instagram struct {
-	CookiesFile string `yaml:"cookies_file"`
+	Cookies string `yaml:"cookies"`
 }
 
 type Config struct {
