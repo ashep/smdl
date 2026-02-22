@@ -70,13 +70,13 @@ func jsonCookiesToNetscape(jsonPath string) (string, error) {
 }
 
 // GetInstagram downloads all media from an Instagram URL into a subdirectory
-// of destDir and returns the subdirectory path.
+// of dstDir and returns the subdirectory path.
 //
 // It shells out to yt-dlp which must be installed on the system.
 // If the environment variable INSTAGRAM_COOKIES_FILE is set, it must point to
 // a JSON cookies file (as exported by browser extensions). The cookies are
 // converted to Netscape format and passed to yt-dlp for authenticated downloads.
-func GetInstagram(rawURL, destDir string) (string, error) {
+func GetInstagram(rawURL, dstDir string) (string, error) {
 	// Validate the URL and derive a safe directory name from the path.
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {
@@ -90,7 +90,7 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 		slug = "instagram"
 	}
 
-	subDir := filepath.Join(destDir, slug)
+	subDir := filepath.Join(dstDir, slug)
 	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		return "", fmt.Errorf("create dest dir: %w", err)
 	}
@@ -125,7 +125,16 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 	errMsg, err := runCmd("yt-dlp", append(args, rawURL))
 	if err != nil && strings.Contains(errMsg, "No video formats found") {
 		// yt-dlp cannot handle image-only posts; fall back to gallery-dl.
-		gdlArgs := []string{"-D", subDir}
+		// Remove any files yt-dlp may have written before failing so we don't
+		// end up with duplicates under different naming schemes.
+		if entries, _ := os.ReadDir(subDir); len(entries) > 0 {
+			os.RemoveAll(subDir)
+			os.MkdirAll(subDir, 0o755)
+		}
+		gdlArgs := []string{
+			"-D", subDir,
+			"--filename", "{num:>02}_{post_id}.{extension}",
+		}
 		if netscapeArg := netscapeCookiesArg(args); netscapeArg != "" {
 			gdlArgs = append(gdlArgs, "--cookies", netscapeArg)
 		}
