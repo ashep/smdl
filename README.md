@@ -33,7 +33,9 @@ instagram:
 
 ### Instagram cookies
 
-Instagram requires authentication. Export your browser cookies using an extension like [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) and save the result as `cookies.json` next to `config.yml`.
+Instagram requires authentication. Export your browser cookies using an extension
+like [EditThisCookie](https://chromewebstore.google.com/detail/EditThisCookie%20%28V3%29/ojfebgpkimhlhcblbalbfjblapadhbol)
+and save the result as `cookies.json` next to `config.yml`.
 
 ## Running
 

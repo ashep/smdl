@@ -10,7 +10,8 @@
       "Bash(go run:*)",
       "Bash(yt-dlp:*)",
       "Bash(python3:*)",
-      "Bash(gallery-dl:*)"
+      "Bash(gallery-dl:*)",
+      "Bash(git rm:*)"
     ]
   }
 }

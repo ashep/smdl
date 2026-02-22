@@ -1,0 +1,10 @@
+on:
+  - push
+
+jobs:
+  build:
+    uses: ashep/ci/.github/workflows/go-build.yaml@v1
+    with:
+      registry_user: ${{ vars.REGISTRY_USER }}
+    secrets:
+      registry_password: ${{ secrets.REGISTRY_PASSWORD }}
