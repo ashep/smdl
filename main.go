@@ -10,10 +10,9 @@ import (
 
 func main() {
 	err := runner.New(app.Run).
-		LoadEnvConfig().
 		LoadConfigFile("config.yml").
+		LoadEnvConfig().
 		AddConsoleLogWriter().
-		AddHTTPLogWriter().
 		Run()
 
 	if err != nil {
