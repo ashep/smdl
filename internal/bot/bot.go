@@ -245,7 +245,11 @@ func compressVideo(inputPath string) (string, error) {
 
 	if err := cmd.Run(); err != nil {
 		os.Remove(tmp.Name())
-		return "", fmt.Errorf("%s", strings.TrimSpace(stderr.String()))
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			return "", err
+		}
+		return "", fmt.Errorf("%s", msg)
 	}
 
 	return tmp.Name(), nil
