@@ -121,21 +121,34 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 		args = append(args, "--cookies", netscapePath)
 	}
 
-	args = append(args, rawURL)
+	// First attempt: default format selection (handles videos and carousels).
+	errMsg, err := runYtDlp(append(args, rawURL))
+	if err != nil && strings.Contains(errMsg, "No video formats found") {
+		// Image-only posts have no video formats. Retry downloading the image
+		// as a thumbnail (for Instagram image posts this is the full-resolution image).
+		imageArgs := append(args, "--write-thumbnail", "--skip-download", "--convert-thumbnails", "jpg", rawURL)
+		errMsg, err = runYtDlp(imageArgs)
+	}
+	if err != nil {
+		downloadErr = fmt.Errorf("yt-dlp: %s", errMsg)
+		return "", downloadErr
+	}
 
+	return subDir, nil
+}
+
+// runYtDlp executes yt-dlp with the given arguments and returns (stderr, error).
+func runYtDlp(args []string) (string, error) {
 	cmd := exec.Command("yt-dlp", args...)
 	// Stdout is intentionally discarded; yt-dlp writes downloaded files to disk.
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-
 	if err := cmd.Run(); err != nil {
 		msg := strings.TrimSpace(stderr.String())
 		if msg == "" {
 			msg = err.Error()
 		}
-		downloadErr = fmt.Errorf("yt-dlp: %s", msg)
-		return "", downloadErr
+		return msg, err
 	}
-
-	return subDir, nil
+	return "", nil
 }
