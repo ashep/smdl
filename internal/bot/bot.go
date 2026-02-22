@@ -131,7 +131,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 
 	var totalSize int64
 	var media []interface{}
-	for _, entry := range entries {
+	for i, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
@@ -145,7 +145,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 				Str("file", entry.Name()).
 				Str("size", fmt.Sprintf("%.2f MB", float64(info.Size())/1024/1024)).
 				Msg("file exceeds Telegram limit, skipping")
-			notice := fmt.Sprintf("File %s (%.2f MB) exceeds Telegram's 50 MB limit and cannot be sent.", entry.Name(), float64(info.Size())/1024/1024)
+			notice := fmt.Sprintf("File %d is too big: %.2fMB", i+1, float64(info.Size())/1024/1024)
 			if _, err := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, notice)); err != nil {
 				l.Error().Err(err).Msg("failed to send size limit notice")
 			}
@@ -159,8 +159,11 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		switch ext {
 		case ".mp4", ".webm", ".mkv", ".mov", ".avi":
 			media = append(media, tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(path)))
-		default:
+		case ".jpg", ".jpeg", ".png", ".webp", ".heic", ".gif":
 			media = append(media, tgbotapi.NewInputMediaPhoto(tgbotapi.FilePath(path)))
+		default:
+			l.Warn().Str("file", entry.Name()).Msg("skipping unsupported file type")
+			continue
 		}
 	}
 

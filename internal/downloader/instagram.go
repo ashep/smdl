@@ -43,7 +43,7 @@ func (d *Downloader) GetInstagram(rawURL string) (string, error) {
 	args := []string{
 		"--output", outputTmpl,
 		"--no-playlist",
-		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]/bestvideo+bestaudio/best",
+		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]/best",
 		"--cookies", d.cookiesFilename,
 	}
 
