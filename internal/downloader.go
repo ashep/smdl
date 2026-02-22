@@ -121,26 +121,40 @@ func GetInstagram(rawURL, destDir string) (string, error) {
 		args = append(args, "--cookies", netscapePath)
 	}
 
-	// First attempt: default format selection (handles videos and carousels).
-	errMsg, err := runYtDlp(append(args, rawURL))
+	// First attempt with yt-dlp (handles videos and carousels).
+	errMsg, err := runCmd("yt-dlp", append(args, rawURL))
 	if err != nil && strings.Contains(errMsg, "No video formats found") {
-		// Image-only posts have no video formats. Retry downloading the image
-		// as a thumbnail (for Instagram image posts this is the full-resolution image).
-		imageArgs := append(args, "--write-thumbnail", "--skip-download", "--convert-thumbnails", "jpg", rawURL)
-		errMsg, err = runYtDlp(imageArgs)
+		// yt-dlp cannot handle image-only posts; fall back to gallery-dl.
+		gdlArgs := []string{"-D", subDir}
+		if netscapeArg := netscapeCookiesArg(args); netscapeArg != "" {
+			gdlArgs = append(gdlArgs, "--cookies", netscapeArg)
+		}
+		gdlArgs = append(gdlArgs, rawURL)
+		errMsg, err = runCmd("gallery-dl", gdlArgs)
 	}
 	if err != nil {
-		downloadErr = fmt.Errorf("yt-dlp: %s", errMsg)
+		downloadErr = fmt.Errorf("%s", errMsg)
 		return "", downloadErr
 	}
 
 	return subDir, nil
 }
 
-// runYtDlp executes yt-dlp with the given arguments and returns (stderr, error).
-func runYtDlp(args []string) (string, error) {
-	cmd := exec.Command("yt-dlp", args...)
-	// Stdout is intentionally discarded; yt-dlp writes downloaded files to disk.
+// netscapeCookiesArg extracts the value of --cookies from an args slice, or
+// returns "" if not present.
+func netscapeCookiesArg(args []string) string {
+	for i, a := range args {
+		if a == "--cookies" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
+}
+
+// runCmd executes a command with the given arguments and returns (stderr, error).
+func runCmd(name string, args []string) (string, error) {
+	cmd := exec.Command(name, args...)
+	// Stdout is intentionally discarded; the tool writes downloaded files to disk.
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
