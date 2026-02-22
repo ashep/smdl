@@ -39,7 +39,11 @@ func (d *Downloader) GetYouTube(rawURL string) (string, error) {
 
 	outputTmpl := filepath.Join(subDir, "%(title)s.%(ext)s")
 
-	errMsg, err := d.runCmd("yt-dlp", []string{"--output", outputTmpl, rawURL})
+	errMsg, err := d.runCmd("yt-dlp", []string{
+		"--output", outputTmpl,
+		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]",
+		rawURL,
+	})
 	if err != nil {
 		downloadErr = fmt.Errorf("%s", errMsg)
 		return "", downloadErr
