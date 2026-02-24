@@ -30,11 +30,18 @@ telegram:
 instagram:
   cookies: |
     [{"domain": ".instagram.com", "name": "sessionid", "value": "...", ...}]
+  # or base64-encoded (useful for env-var injection or secrets managers):
+  # cookies64: W3siZG9tYWluIjogIi5pbnN0YWdyYW0uY29tIiwgLi4ufV0=
 ```
 
 ### Instagram cookies
 
-Instagram requires authentication. Export your browser cookies as JSON using an extension like [EditThisCookie](https://chromewebstore.google.com/detail/EditThisCookie%20%28V3%29/ojfebgpkimhlhcblbalbfjblapadhbol) and paste the JSON array as the value of `instagram.cookies` in `config.yml`.
+Instagram requires authentication. Export your browser cookies as JSON using an extension like [EditThisCookie](https://chromewebstore.google.com/detail/EditThisCookie%20%28V3%29/ojfebgpkimhlhcblbalbfjblapadhbol).
+
+- **`cookies`** — paste the JSON array directly
+- **`cookies64`** — paste the JSON array base64-encoded (fallback if `cookies` is not set)
+
+To encode: `cat cookies.json | base64`
 
 ## Running
 
