@@ -20,6 +20,7 @@ import (
 type Downloader interface {
 	GetInstagram(rawURL string) (string, error)
 	GetYouTube(rawURL string) (string, error)
+	GetTikTok(rawURL string) (string, error)
 }
 
 type Bot struct {
@@ -112,6 +113,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		download = func() (string, error) { return b.dl.GetInstagram(rawURL) }
 	case strings.Contains(u.Host, "youtube.com"), strings.Contains(u.Host, "youtu.be"):
 		download = func() (string, error) { return b.dl.GetYouTube(rawURL) }
+	case strings.Contains(u.Host, "tiktok.com"):
+		download = func() (string, error) { return b.dl.GetTikTok(rawURL) }
 	default:
 		l.Info().Str("host", u.Host).Msg("unsupported URL, skipping")
 		return nil

@@ -6,6 +6,7 @@ A Telegram bot that downloads media from Instagram and YouTube Shorts and sends 
 
 - **Instagram** — reels, posts (images, videos, carousels)
 - **YouTube Shorts** — single videos
+- **TikTok** — single videos
 - Oversized videos (>50 MB) are automatically compressed with ffmpeg before sending
 - Non-MP4 videos (WebM, MKV, MOV, AVI) are converted to MP4 for inline playback
 - Typing indicator while downloading/processing
@@ -51,7 +52,7 @@ go run main.go
 
 ## Usage
 
-Send an Instagram or YouTube Shorts URL to the bot — it replies with the media files.
+Send an Instagram, YouTube Shorts, or TikTok URL to the bot — it replies with the media files.
 
 ## License
 
