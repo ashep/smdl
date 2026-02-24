@@ -3,11 +3,13 @@ package bot
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -179,7 +181,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 							Str("size", fmt.Sprintf("%.2f MB", float64(cinfo.Size())/1024/1024)).
 							Msg("compression succeeded")
 						totalSize += cinfo.Size()
-						media = append(media, tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(compressed)))
+						media = append(media, newInputMediaVideo(compressed, l))
 						continue
 					}
 					l.Warn().Msg("compressed file still too large")
@@ -209,10 +211,10 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 				media = append(media, tgbotapi.NewInputMediaDocument(tgbotapi.FilePath(path)))
 			} else {
 				defer os.Remove(converted)
-				media = append(media, tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(converted)))
+				media = append(media, newInputMediaVideo(converted, l))
 			}
 		case ".mp4":
-			media = append(media, tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(path)))
+			media = append(media, newInputMediaVideo(path, l))
 		case ".jpg", ".jpeg", ".png", ".webp", ".heic", ".gif":
 			media = append(media, tgbotapi.NewInputMediaPhoto(tgbotapi.FilePath(path)))
 		default:
@@ -311,4 +313,70 @@ func convertToMP4(inputPath string) (string, error) {
 	}
 
 	return tmp.Name(), nil
+}
+
+// newInputMediaVideo creates an InputMediaVideo and attempts to set the correct
+// display dimensions by probing the file with ffprobe. If probing fails the
+// video is still returned without explicit dimensions.
+func newInputMediaVideo(path string, l zerolog.Logger) tgbotapi.InputMediaVideo {
+	v := tgbotapi.NewInputMediaVideo(tgbotapi.FilePath(path))
+	w, h, err := probeVideoDimensions(path)
+	if err != nil {
+		l.Warn().Err(err).Str("file", path).Msg("could not probe video dimensions")
+		return v
+	}
+	v.Width = w
+	v.Height = h
+	return v
+}
+
+// probeVideoDimensions returns the display width and height of a video file,
+// accounting for the sample aspect ratio (SAR). This is needed because some
+// Instagram reels have non-1:1 SAR, causing Telegram to render them at the
+// wrong aspect ratio when dimensions are not specified explicitly.
+func probeVideoDimensions(path string) (width, height int, err error) {
+	type stream struct {
+		Width             int    `json:"width"`
+		Height            int    `json:"height"`
+		SampleAspectRatio string `json:"sample_aspect_ratio"`
+	}
+	var out struct {
+		Streams []stream `json:"streams"`
+	}
+
+	var stdout bytes.Buffer
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=width,height,sample_aspect_ratio",
+		"-of", "json",
+		path,
+	)
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		return 0, 0, fmt.Errorf("ffprobe: %w", err)
+	}
+
+	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
+		return 0, 0, fmt.Errorf("parse ffprobe output: %w", err)
+	}
+	if len(out.Streams) == 0 {
+		return 0, 0, fmt.Errorf("no video streams found")
+	}
+
+	s := out.Streams[0]
+	w, h := s.Width, s.Height
+
+	// Apply SAR to get display width. SAR "N:D" means display_width = w * N/D.
+	if sar := s.SampleAspectRatio; sar != "" && sar != "1:1" && sar != "0:1" {
+		if parts := strings.SplitN(sar, ":", 2); len(parts) == 2 {
+			sarNum, e1 := strconv.Atoi(parts[0])
+			sarDen, e2 := strconv.Atoi(parts[1])
+			if e1 == nil && e2 == nil && sarDen != 0 {
+				w = w * sarNum / sarDen
+			}
+		}
+	}
+
+	return w, h, nil
 }
