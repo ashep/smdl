@@ -88,7 +88,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 	if msg.IsCommand() {
 		switch msg.Command() {
 		case "start":
-			welcome := "👋 Hello! Send me an Instagram or YouTube Shorts link and I'll download the media for you."
+			welcome := "👋 Hello! Send me an Instagram, YouTube Shorts, or TikTok link and I'll download the media for you."
 			welcome += "\n\nВСЬО БЕСПЛАТНО! Сделано специально для Марины Владимировны, которую душит жаба 🐸"
 			_, err := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, welcome))
 			if err != nil {
