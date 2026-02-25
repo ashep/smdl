@@ -37,11 +37,14 @@ func (d *Downloader) GetTikTok(rawURL string) (string, error) {
 
 	outputTmpl := filepath.Join(subDir, "%(title)s.%(ext)s")
 
-	errMsg, err := d.runCmd("yt-dlp", []string{
+	args := d.proxyArgs()
+	args = append(args,
 		"--output", outputTmpl,
 		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]",
 		rawURL,
-	})
+	)
+
+	errMsg, err := d.runCmd("yt-dlp", args)
 	if err != nil {
 		downloadErr = fmt.Errorf("%s", errMsg)
 		return "", downloadErr
