@@ -10,18 +10,19 @@ import (
 )
 
 type Downloader struct {
-	dstDir                  string
-	cookiesFilename         string
-	youtubeCookiesFilename  string
-	l                       zerolog.Logger
+	dstDir                 string
+	cookiesFilename        string
+	youtubeCookiesFilename string
+	proxy                  string
+	l                      zerolog.Logger
 }
 
-func New(dstDir, instagramCookiesJSON, youtubeCookiesJSON string, l zerolog.Logger) (*Downloader, error) {
+func New(dstDir, instagramCookiesJSON, youtubeCookiesJSON, proxy string, l zerolog.Logger) (*Downloader, error) {
 	if instagramCookiesJSON == "" {
 		return nil, fmt.Errorf("instagram cookies json is required")
 	}
 
-	d := &Downloader{dstDir: dstDir, l: l}
+	d := &Downloader{dstDir: dstDir, proxy: proxy, l: l}
 
 	cfn, err := d.jsonCookiesToNetscape(instagramCookiesJSON)
 	if err != nil {
@@ -41,6 +42,14 @@ func New(dstDir, instagramCookiesJSON, youtubeCookiesJSON string, l zerolog.Logg
 	}
 
 	return d, nil
+}
+
+// proxyArgs returns ["--proxy", d.proxy] when a proxy is configured, nil otherwise.
+func (d *Downloader) proxyArgs() []string {
+	if d.proxy == "" {
+		return nil
+	}
+	return []string{"--proxy", d.proxy}
 }
 
 // runCmd executes a command with the given arguments and returns (stderr, error).
