@@ -40,12 +40,13 @@ func (d *Downloader) GetInstagram(rawURL string) (string, error) {
 
 	outputTmpl := filepath.Join(subDir, "%(title)s.%(ext)s")
 
-	args := []string{
+	args := d.proxyArgs()
+	args = append(args,
 		"--output", outputTmpl,
 		"--no-playlist",
 		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]/best",
 		"--cookies", d.cookiesFilename,
-	}
+	)
 
 	// First attempt with yt-dlp (handles videos and carousels).
 	errMsg, err := d.runCmd("yt-dlp", append(args, rawURL))
@@ -59,12 +60,13 @@ func (d *Downloader) GetInstagram(rawURL string) (string, error) {
 			os.RemoveAll(subDir)
 			os.MkdirAll(subDir, 0o755)
 		}
-		gdlArgs := []string{
+		gdlArgs := d.proxyArgs()
+		gdlArgs = append(gdlArgs,
 			"-D", subDir,
 			"--filename", "{num:>02}_{post_id}.{extension}",
 			"--cookies", d.cookiesFilename,
-		}
-		gdlArgs = append(gdlArgs, rawURL)
+			rawURL,
+		)
 		errMsg, err = d.runCmd("gallery-dl", gdlArgs)
 	}
 	if err != nil {
