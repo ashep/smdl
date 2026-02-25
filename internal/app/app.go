@@ -45,7 +45,7 @@ func Run(rt *runner.Runtime[Config]) error {
 		ytCookies = string(decoded)
 	}
 
-	dl, err := downloader.New(dstDir, igCookies, ytCookies, l)
+	dl, err := downloader.New(dstDir, igCookies, ytCookies, cfg.Proxy, l)
 	if err != nil {
 		return fmt.Errorf("new downloader: %w", err)
 	}
