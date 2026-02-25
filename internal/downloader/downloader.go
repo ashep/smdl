@@ -10,12 +10,13 @@ import (
 )
 
 type Downloader struct {
-	dstDir          string
-	cookiesFilename string
-	l               zerolog.Logger
+	dstDir                  string
+	cookiesFilename         string
+	youtubeCookiesFilename  string
+	l                       zerolog.Logger
 }
 
-func New(dstDir, instagramCookiesJSON string, l zerolog.Logger) (*Downloader, error) {
+func New(dstDir, instagramCookiesJSON, youtubeCookiesJSON string, l zerolog.Logger) (*Downloader, error) {
 	if instagramCookiesJSON == "" {
 		return nil, fmt.Errorf("instagram cookies json is required")
 	}
@@ -29,6 +30,15 @@ func New(dstDir, instagramCookiesJSON string, l zerolog.Logger) (*Downloader, er
 	d.cookiesFilename = cfn
 
 	l.Info().Msgf("instagram cookies loaded to %s", cfn)
+
+	if youtubeCookiesJSON != "" {
+		ycfn, err := d.jsonCookiesToNetscape(youtubeCookiesJSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load youtube cookies: %v", err)
+		}
+		d.youtubeCookiesFilename = ycfn
+		l.Info().Msgf("youtube cookies loaded to %s", ycfn)
+	}
 
 	return d, nil
 }

@@ -36,7 +36,16 @@ func Run(rt *runner.Runtime[Config]) error {
 		igCookies = string(decoded)
 	}
 
-	dl, err := downloader.New(dstDir, igCookies, l)
+	ytCookies := cfg.YouTube.Cookies
+	if ytCookies == "" && cfg.YouTube.Cookies64 != "" {
+		decoded, derr := base64.StdEncoding.DecodeString(cfg.YouTube.Cookies64)
+		if derr != nil {
+			return fmt.Errorf("decode youtube cookies64: %w", derr)
+		}
+		ytCookies = string(decoded)
+	}
+
+	dl, err := downloader.New(dstDir, igCookies, ytCookies, l)
 	if err != nil {
 		return fmt.Errorf("new downloader: %w", err)
 	}
