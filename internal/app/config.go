@@ -18,4 +18,5 @@ type Config struct {
 	Telegram  Telegram  `yaml:"telegram"`
 	Instagram Instagram `yaml:"instagram"`
 	YouTube   YouTube   `yaml:"youtube"`
+	Proxy     string    `yaml:"proxy"`
 }
