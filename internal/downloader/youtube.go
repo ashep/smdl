@@ -39,10 +39,11 @@ func (d *Downloader) GetYouTube(rawURL string) (string, error) {
 
 	outputTmpl := filepath.Join(subDir, "%(title)s.%(ext)s")
 
-	args := []string{
+	args := d.proxyArgs()
+	args = append(args,
 		"--output", outputTmpl,
 		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]",
-	}
+	)
 	if d.youtubeCookiesFilename != "" {
 		args = append(args, "--cookies", d.youtubeCookiesFilename)
 	}
