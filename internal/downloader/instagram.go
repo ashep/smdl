@@ -57,8 +57,14 @@ func (d *Downloader) GetInstagram(rawURL string) (string, error) {
 		// Remove any files yt-dlp may have written before failing so we don't
 		// end up with duplicates under different naming schemes.
 		if entries, _ := os.ReadDir(subDir); len(entries) > 0 {
-			os.RemoveAll(subDir)
-			os.MkdirAll(subDir, 0o755)
+			if err := os.RemoveAll(subDir); err != nil {
+				downloadErr = fmt.Errorf("clear subdir: %w", err)
+				return "", downloadErr
+			}
+			if err := os.MkdirAll(subDir, 0o755); err != nil {
+				downloadErr = fmt.Errorf("recreate subdir: %w", err)
+				return "", downloadErr
+			}
 		}
 		gdlArgs := d.proxyArgs()
 		gdlArgs = append(gdlArgs,
