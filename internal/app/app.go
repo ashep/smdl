@@ -45,7 +45,16 @@ func Run(rt *runner.Runtime[Config]) error {
 		ytCookies = string(decoded)
 	}
 
-	dl, err := downloader.New(dstDir, igCookies, ytCookies, cfg.Proxy, l)
+	fbCookies := cfg.Facebook.Cookies
+	if fbCookies == "" && cfg.Facebook.Cookies64 != "" {
+		decoded, derr := base64.StdEncoding.DecodeString(cfg.Facebook.Cookies64)
+		if derr != nil {
+			return fmt.Errorf("decode facebook cookies64: %w", derr)
+		}
+		fbCookies = string(decoded)
+	}
+
+	dl, err := downloader.New(dstDir, igCookies, ytCookies, fbCookies, cfg.Proxy, l)
 	if err != nil {
 		return fmt.Errorf("new downloader: %w", err)
 	}
