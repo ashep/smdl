@@ -34,3 +34,6 @@ go.work.sum
 config.yaml
 config.yml
 tmp/
+
+.claude/
+docs/plans
