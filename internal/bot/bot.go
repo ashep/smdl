@@ -21,6 +21,7 @@ type Downloader interface {
 	GetInstagram(rawURL string) (string, error)
 	GetYouTube(rawURL string) (string, error)
 	GetTikTok(rawURL string) (string, error)
+	GetFacebook(rawURL string) (string, error)
 }
 
 type Bot struct {
@@ -88,7 +89,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 	if msg.IsCommand() {
 		switch msg.Command() {
 		case "start":
-			welcome := "Send me an Instagram, YouTube Shorts, or TikTok link, and I'll download the media for you."
+			welcome := "Send me an Instagram, YouTube Shorts, TikTok, or Facebook link, and I'll download the media for you."
 			welcome += "\n\nВСЬО БЕСПЛАТНО! Сделано по спецзаказу Марины Владимировны."
 			if _, err := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, welcome)); err != nil {
 				l.Error().Err(err).Msg("failed to send welcome message")
@@ -114,6 +115,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		download = func() (string, error) { return b.dl.GetYouTube(rawURL) }
 	case strings.Contains(u.Host, "tiktok.com"):
 		download = func() (string, error) { return b.dl.GetTikTok(rawURL) }
+	case strings.Contains(u.Host, "facebook.com"), strings.Contains(u.Host, "fb.watch"):
+		download = func() (string, error) { return b.dl.GetFacebook(rawURL) }
 	default:
 		l.Info().Str("host", u.Host).Msg("unsupported URL, skipping")
 		return nil
