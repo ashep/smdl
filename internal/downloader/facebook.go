@@ -41,7 +41,7 @@ func (d *Downloader) GetFacebook(rawURL string) (string, error) {
 	args := d.proxyArgs()
 	args = append(args,
 		"--output", outputTmpl,
-		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]",
+		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]/best",
 	)
 	if d.facebookCookiesFilename != "" {
 		args = append(args, "--cookies", d.facebookCookiesFilename)
