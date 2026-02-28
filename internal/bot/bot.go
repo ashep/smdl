@@ -245,7 +245,11 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		if end > len(media) {
 			end = len(media)
 		}
-		mg := tgbotapi.NewMediaGroup(msg.Chat.ID, media[i:end])
+		batch := media[i:end]
+		if i == 0 {
+			batch[0] = withCaption(batch[0], rawURL)
+		}
+		mg := tgbotapi.NewMediaGroup(msg.Chat.ID, batch)
 		if _, err := b.bot.SendMediaGroup(mg); err != nil {
 			l.Error().Err(err).Msg("failed to send media group")
 		}
@@ -318,6 +322,23 @@ func convertToMP4(inputPath string) (string, error) {
 	}
 
 	return tmp.Name(), nil
+}
+
+// withCaption returns a copy of the InputMedia item with the given caption set.
+func withCaption(item interface{}, caption string) interface{} {
+	switch v := item.(type) {
+	case tgbotapi.InputMediaVideo:
+		v.Caption = caption
+		return v
+	case tgbotapi.InputMediaPhoto:
+		v.Caption = caption
+		return v
+	case tgbotapi.InputMediaDocument:
+		v.Caption = caption
+		return v
+	default:
+		return item
+	}
 }
 
 // newInputMediaVideo creates an InputMediaVideo and attempts to set the correct
