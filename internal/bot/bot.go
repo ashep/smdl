@@ -142,6 +142,9 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 	if err != nil {
 		close(stopTyping)
 		l.Error().Err(err).Msg("download failed")
+		if _, serr := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Sorry, downloading this media is currently not possible.")); serr != nil {
+			l.Error().Err(serr).Msg("failed to send download error notice")
+		}
 		return nil
 	}
 	defer os.RemoveAll(dstDir)
