@@ -170,6 +170,11 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
 		path := filepath.Join(dstDir, entry.Name())
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
 
+		l.Info().
+			Str("file", entry.Name()).
+			Str("size", fmt.Sprintf("%.2f MB", float64(info.Size())/1024/1024)).
+			Msg("raw file downloaded")
+
 		if info.Size() > tgMaxFileSize {
 			switch ext {
 			case ".mp4", ".webm", ".mkv", ".mov", ".avi":
