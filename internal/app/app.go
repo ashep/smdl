@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"os"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/ashep/go-app/runner"
+	"github.com/ashep/smdl/pkg/downloader"
+	"github.com/ashep/smdl/pkg/telegram"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog"
-
-	"github.com/ashep/smdl/internal/bot"
-	"github.com/ashep/smdl/internal/downloader"
 )
 
 func Run(rt *runner.Runtime[Config]) error {
@@ -63,35 +62,45 @@ func Run(rt *runner.Runtime[Config]) error {
 		return fmt.Errorf("new downloader: %w", err)
 	}
 
-	b, err := bot.New(cfg.Telegram.Token, dl, l)
+	tgAPI, err := tgbotapi.NewBotAPI(cfg.Telegram.Token)
 	if err != nil {
-		return fmt.Errorf("new bot: %w", err)
+		return fmt.Errorf("tgbotapi.NewBotAPI: %w", err)
 	}
 
-	runBot(ctx, b, l)
+	runBot(ctx, tgAPI, telegram.NewMessageHandler(tgAPI, dl, l), l)
 
 	return nil
 }
 
-func runBot(ctx context.Context, b *bot.Bot, l zerolog.Logger) {
+func runBot(ctx context.Context, tgAPI *tgbotapi.BotAPI, msgHandler *telegram.MessageHandler, l zerolog.Logger) {
 	cfg := tgbotapi.NewUpdate(0)
 	cfg.Timeout = 60
 
-	updates := b.API().GetUpdatesChan(cfg)
+	updates := tgAPI.GetUpdatesChan(cfg)
 	l.Info().Msg("starting")
 
 loop:
 	for {
 		select {
 		case <-ctx.Done():
-			b.API().StopReceivingUpdates()
+			tgAPI.StopReceivingUpdates()
 			l.Info().Msg("stopped")
 			break loop
 		case upd := <-updates:
 			switch {
 			case upd.Message != nil:
-				if err := b.HandleMessage(upd.Message); err != nil {
-					l.Error().Err(err).Msg("failed to handle new message")
+				if upd.Message.IsCommand() {
+					switch upd.Message.Command() {
+					case "start":
+						welcome := "Send me an Instagram, YouTube Shorts, TikTok, or Facebook link, and I'll download the media for you."
+						if _, err := tgAPI.Send(tgbotapi.NewMessage(upd.Message.Chat.ID, welcome)); err != nil {
+							l.Error().Err(err).Msg("failed to send welcome message")
+						}
+					default:
+						if err := msgHandler.Handle(upd.Message); err != nil {
+							l.Error().Err(err).Msg("failed to handle new message")
+						}
+					}
 				}
 			case upd.EditedMessage != nil:
 				l.Warn().Msg("edited messages are not supported")

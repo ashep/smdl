@@ -11,10 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ashep/smdl/pkg/downloader"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog"
-
-	"github.com/ashep/smdl/internal/downloader"
 )
 
 type Downloader interface {
@@ -58,20 +57,6 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 	}
 
 	l.Info().Str("text", msg.Text).Msg("incoming message")
-
-	if msg.IsCommand() {
-		switch msg.Command() {
-		case "start":
-			welcome := "Send me an Instagram, YouTube Shorts, TikTok, or Facebook link, and I'll download the media for you."
-			welcome += "\n\nВСЬО БЕСПЛАТНО! Сделано по спецзаказу Марины Владимировны."
-			if _, err := h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, welcome)); err != nil {
-				l.Error().Err(err).Msg("failed to send welcome message")
-			}
-		default:
-			l.Info().Str("command", msg.Command()).Msg("unknown command, ignoring")
-		}
-		return nil
-	}
 
 	rawURL := strings.TrimSpace(msg.Text)
 
