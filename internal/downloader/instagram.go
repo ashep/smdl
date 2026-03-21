@@ -10,7 +10,7 @@ import (
 
 // GetInstagram downloads all media from an Instagram URL into a subdirectory
 // of dstDir and returns the subdirectory path.
-func (d *Downloader) GetInstagram(rawURL string) (string, error) {
+func (d *Downloader) getInstagram(rawURL string) (string, error) {
 	// Validate the URL and derive a safe directory name from the path.
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {

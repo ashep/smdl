@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-// GetYouTube downloads a YouTube Shorts video into a subdirectory of
+// getYouTube downloads a YouTube Shorts video into a subdirectory of
 // dstDir and returns the subdirectory path.
 //
 // It shells out to yt-dlp which must be installed on the system.
-func (d *Downloader) GetYouTube(rawURL string) (string, error) {
+func (d *Downloader) getYouTube(rawURL string) (string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {
 		return "", fmt.Errorf("invalid URL: %q", rawURL)

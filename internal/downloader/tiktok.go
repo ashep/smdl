@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-// GetTikTok downloads a TikTok video into a subdirectory of dstDir and returns
+// getTikTok downloads a TikTok video into a subdirectory of dstDir and returns
 // the subdirectory path. It shells out to yt-dlp which must be installed on the system.
-func (d *Downloader) GetTikTok(rawURL string) (string, error) {
+func (d *Downloader) getTikTok(rawURL string) (string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {
 		return "", fmt.Errorf("invalid URL: %q", rawURL)

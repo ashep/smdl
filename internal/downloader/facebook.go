@@ -8,10 +8,10 @@ import (
 	"strings"
 )
 
-// GetFacebook downloads a Facebook video into a subdirectory of dstDir and
+// getFacebook downloads a Facebook video into a subdirectory of dstDir and
 // returns the subdirectory path. It shells out to yt-dlp which must be
 // installed on the system.
-func (d *Downloader) GetFacebook(rawURL string) (string, error) {
+func (d *Downloader) getFacebook(rawURL string) (string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {
 		return "", fmt.Errorf("invalid URL: %q", rawURL)
