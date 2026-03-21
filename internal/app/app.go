@@ -2,9 +2,7 @@ package app
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
-	"os"
 
 	"github.com/ashep/go-app/runner"
 	"github.com/ashep/smdl/pkg/downloader"
@@ -18,49 +16,11 @@ func Run(rt *runner.Runtime[Config]) error {
 	cfg := rt.Cfg
 	l := rt.Log
 
-	dstDir, err := os.MkdirTemp("", "smdl-*")
-	if err != nil {
-		return fmt.Errorf("create temp dir: %w", err)
-	}
-	defer func() {
-		if err := os.RemoveAll(dstDir); err != nil {
-			l.Err(err).Str("path", dstDir).Msg("remove temp dir")
-		} else {
-			l.Info().Str("path", dstDir).Msg("temp dir removed")
-		}
-	}()
-
-	igCookies := cfg.Instagram.Cookies
-	if igCookies == "" && cfg.Instagram.Cookies64 != "" {
-		decoded, derr := base64.StdEncoding.DecodeString(cfg.Instagram.Cookies64)
-		if derr != nil {
-			return fmt.Errorf("decode instagram cookies64: %w", derr)
-		}
-		igCookies = string(decoded)
-	}
-
-	ytCookies := cfg.YouTube.Cookies
-	if ytCookies == "" && cfg.YouTube.Cookies64 != "" {
-		decoded, derr := base64.StdEncoding.DecodeString(cfg.YouTube.Cookies64)
-		if derr != nil {
-			return fmt.Errorf("decode youtube cookies64: %w", derr)
-		}
-		ytCookies = string(decoded)
-	}
-
-	fbCookies := cfg.Facebook.Cookies
-	if fbCookies == "" && cfg.Facebook.Cookies64 != "" {
-		decoded, derr := base64.StdEncoding.DecodeString(cfg.Facebook.Cookies64)
-		if derr != nil {
-			return fmt.Errorf("decode facebook cookies64: %w", derr)
-		}
-		fbCookies = string(decoded)
-	}
-
-	dl, err := downloader.New(dstDir, igCookies, ytCookies, fbCookies, cfg.Proxy, l)
+	dl, err := downloader.New(cfg.Instagram.Cookies, cfg.YouTube.Cookies, cfg.Facebook.Cookies, cfg.Proxy, l)
 	if err != nil {
 		return fmt.Errorf("new downloader: %w", err)
 	}
+	defer dl.Close()
 
 	tgAPI, err := tgbotapi.NewBotAPI(cfg.Telegram.Token)
 	if err != nil {

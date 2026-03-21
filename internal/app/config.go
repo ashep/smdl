@@ -5,18 +5,15 @@ type Telegram struct {
 }
 
 type Instagram struct {
-	Cookies   string `yaml:"cookies"`
-	Cookies64 string `yaml:"cookies64"`
+	Cookies string `yaml:"cookies"`
 }
 
 type YouTube struct {
-	Cookies   string `yaml:"cookies"`
-	Cookies64 string `yaml:"cookies64"`
+	Cookies string `yaml:"cookies"`
 }
 
 type Facebook struct {
-	Cookies   string `yaml:"cookies"`
-	Cookies64 string `yaml:"cookies64"`
+	Cookies string `yaml:"cookies"`
 }
 
 type Config struct {

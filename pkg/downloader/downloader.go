@@ -2,6 +2,7 @@ package downloader
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -26,23 +27,35 @@ type Downloader struct {
 	l                       zerolog.Logger
 }
 
-func New(dstDir, instagramCookiesJSON, youtubeCookiesJSON, facebookCookiesJSON, proxy string, l zerolog.Logger) (*Downloader, error) {
-	if instagramCookiesJSON == "" {
-		return nil, fmt.Errorf("instagram cookies json is required")
+func New(instagramCookies64, youtubeCookies64, facebookCookies64, proxy string, l zerolog.Logger) (*Downloader, error) {
+	if instagramCookies64 == "" {
+		return nil, fmt.Errorf("instagram cookies are required")
+	}
+
+	dstDir, err := os.MkdirTemp("", "smdl-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
 	}
 
 	d := &Downloader{dstDir: dstDir, proxy: proxy, l: l}
 
-	cfn, err := d.jsonCookiesToNetscape(instagramCookiesJSON)
+	igCookiesJSON, err := base64.StdEncoding.DecodeString(instagramCookies64)
+	if err != nil {
+		return nil, fmt.Errorf("decode instagram cookies: %w", err)
+	}
+	cfn, err := d.jsonCookiesToNetscape(string(igCookiesJSON))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load instagram cookies: %v", err)
 	}
 	d.cookiesFilename = cfn
-
 	l.Info().Msgf("instagram cookies loaded to %s", cfn)
 
-	if youtubeCookiesJSON != "" {
-		ycfn, err := d.jsonCookiesToNetscape(youtubeCookiesJSON)
+	if youtubeCookies64 != "" {
+		ytCookiesJSON, err := base64.StdEncoding.DecodeString(youtubeCookies64)
+		if err != nil {
+			return nil, fmt.Errorf("decode youtube cookies: %w", err)
+		}
+		ycfn, err := d.jsonCookiesToNetscape(string(ytCookiesJSON))
 		if err != nil {
 			return nil, fmt.Errorf("failed to load youtube cookies: %v", err)
 		}
@@ -50,8 +63,12 @@ func New(dstDir, instagramCookiesJSON, youtubeCookiesJSON, facebookCookiesJSON, 
 		l.Info().Msgf("youtube cookies loaded to %s", ycfn)
 	}
 
-	if facebookCookiesJSON != "" {
-		fcfn, err := d.jsonCookiesToNetscape(facebookCookiesJSON)
+	if facebookCookies64 != "" {
+		fbCookiesJSON, err := base64.StdEncoding.DecodeString(facebookCookies64)
+		if err != nil {
+			return nil, fmt.Errorf("decode facebook cookies: %w", err)
+		}
+		fcfn, err := d.jsonCookiesToNetscape(string(fbCookiesJSON))
 		if err != nil {
 			return nil, fmt.Errorf("failed to load facebook cookies: %v", err)
 		}
@@ -60,6 +77,14 @@ func New(dstDir, instagramCookiesJSON, youtubeCookiesJSON, facebookCookiesJSON, 
 	}
 
 	return d, nil
+}
+
+func (d *Downloader) Close() {
+	if err := os.RemoveAll(d.dstDir); err != nil {
+		d.l.Err(err).Str("path", d.dstDir).Msg("remove temp dir")
+	} else {
+		d.l.Info().Str("path", d.dstDir).Msg("temp dir removed")
+	}
 }
 
 func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
