@@ -2,7 +2,6 @@ package bot
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -41,34 +40,11 @@ func New(tgToken string, dl Downloader, l zerolog.Logger) (*Bot, error) {
 	}, nil
 }
 
-func (b *Bot) Run(ctx context.Context) {
-	cfg := tgbotapi.NewUpdate(0)
-	cfg.Timeout = 60
-
-	updates := b.bot.GetUpdatesChan(cfg)
-	b.l.Info().Msg("starting")
-
-loop:
-	for {
-		select {
-		case <-ctx.Done():
-			b.bot.StopReceivingUpdates()
-			b.l.Info().Msg("stopped")
-			break loop
-		case upd := <-updates:
-			switch {
-			case upd.Message != nil:
-				if err := b.handleMessage(upd.Message); err != nil {
-					b.l.Error().Err(err).Msg("failed to handle new message")
-				}
-			case upd.EditedMessage != nil:
-				b.l.Warn().Msg("edited messages are not supported")
-			}
-		}
-	}
+func (b *Bot) API() *tgbotapi.BotAPI {
+	return b.bot
 }
 
-func (b *Bot) handleMessage(msg *tgbotapi.Message) error {
+func (b *Bot) HandleMessage(msg *tgbotapi.Message) error {
 	l := b.l.With().
 		Int64("chat_id", msg.Chat.ID).
 		Int64("user_id", msg.From.ID).

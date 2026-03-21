@@ -1,11 +1,15 @@
 package app
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/ashep/go-app/runner"
+	"github.com/rs/zerolog"
+
 	"github.com/ashep/smdl/internal/bot"
 	"github.com/ashep/smdl/internal/downloader"
 )
@@ -64,7 +68,34 @@ func Run(rt *runner.Runtime[Config]) error {
 		return fmt.Errorf("new bot: %w", err)
 	}
 
-	b.Run(ctx)
+	runBot(ctx, b, l)
 
 	return nil
+}
+
+func runBot(ctx context.Context, b *bot.Bot, l zerolog.Logger) {
+	cfg := tgbotapi.NewUpdate(0)
+	cfg.Timeout = 60
+
+	updates := b.API().GetUpdatesChan(cfg)
+	l.Info().Msg("starting")
+
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			b.API().StopReceivingUpdates()
+			l.Info().Msg("stopped")
+			break loop
+		case upd := <-updates:
+			switch {
+			case upd.Message != nil:
+				if err := b.HandleMessage(upd.Message); err != nil {
+					l.Error().Err(err).Msg("failed to handle new message")
+				}
+			case upd.EditedMessage != nil:
+				l.Warn().Msg("edited messages are not supported")
+			}
+		}
+	}
 }
