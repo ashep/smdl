@@ -1,4 +1,4 @@
-package bot
+package telegram
 
 import (
 	"bytes"
@@ -21,31 +21,30 @@ type Downloader interface {
 	Download(rawURL string) ([]downloader.MediaFile, error)
 }
 
-type Bot struct {
+type MessageHandler struct {
 	bot *tgbotapi.BotAPI
 	dl  Downloader
 	l   zerolog.Logger
 }
 
-func New(tgToken string, dl Downloader, l zerolog.Logger) (*Bot, error) {
-	bot, err := tgbotapi.NewBotAPI(tgToken)
-	if err != nil {
-		return nil, fmt.Errorf("new: %w", err)
-	}
-
-	return &Bot{
+func NewMessageHandler(bot *tgbotapi.BotAPI, dl Downloader, l zerolog.Logger) *MessageHandler {
+	return &MessageHandler{
 		bot: bot,
 		dl:  dl,
 		l:   l,
-	}, nil
+	}
 }
 
-func (b *Bot) API() *tgbotapi.BotAPI {
-	return b.bot
-}
-
-func (b *Bot) HandleMessage(msg *tgbotapi.Message) error {
-	l := b.l.With().
+// Handle processes an incoming Telegram message. Plain-text messages are
+// treated as media URLs: the URL is downloaded via the Downloader, and the
+// resulting files are sent back to the same chat as a media group (up to 10
+// items per batch). Files that exceed the 50 MB Telegram bot upload limit are
+// skipped with a notice to the user. Bot commands are handled separately —
+// /start sends a welcome message; unknown commands are silently ignored.
+// Returns an error only for unexpected I/O failures; Telegram API errors are
+// logged and swallowed so the update loop can continue.
+func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
+	l := h.l.With().
 		Int64("chat_id", msg.Chat.ID).
 		Int64("user_id", msg.From.ID).
 		Str("user_name", msg.From.UserName).
@@ -65,7 +64,7 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) error {
 		case "start":
 			welcome := "Send me an Instagram, YouTube Shorts, TikTok, or Facebook link, and I'll download the media for you."
 			welcome += "\n\nВСЬО БЕСПЛАТНО! Сделано по спецзаказу Марины Владимировны."
-			if _, err := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, welcome)); err != nil {
+			if _, err := h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, welcome)); err != nil {
 				l.Error().Err(err).Msg("failed to send welcome message")
 			}
 		default:
@@ -80,7 +79,7 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) error {
 	stopTyping := make(chan struct{})
 	go func() {
 		for {
-			if _, err := b.bot.Request(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)); err != nil {
+			if _, err := h.bot.Request(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)); err != nil {
 				l.Warn().Err(err).Msg("failed to send chat action")
 			}
 			select {
@@ -91,12 +90,12 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) error {
 		}
 	}()
 
-	files, err := b.dl.Download(rawURL)
+	files, err := h.dl.Download(rawURL)
 
 	if err != nil {
 		close(stopTyping)
 		l.Error().Err(err).Msg("download failed")
-		if _, serr := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Sorry, downloading this media is currently not possible.")); serr != nil {
+		if _, serr := h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Sorry, downloading this media is currently not possible.")); serr != nil {
 			l.Error().Err(serr).Msg("failed to send download error notice")
 		}
 		return nil
@@ -122,7 +121,7 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) error {
 				Str("size", fmt.Sprintf("%.2f MB", float64(info.Size())/1024/1024)).
 				Msg("file exceeds Telegram limit, skipping")
 			notice := fmt.Sprintf("File %d is too big: %.2fMB", i+1, float64(info.Size())/1024/1024)
-			if _, err := b.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, notice)); err != nil {
+			if _, err := h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, notice)); err != nil {
 				l.Error().Err(err).Msg("failed to send size limit notice")
 			}
 			continue
@@ -161,7 +160,7 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) error {
 			batch[0] = withCaption(batch[0], rawURL)
 		}
 		mg := tgbotapi.NewMediaGroup(msg.Chat.ID, batch)
-		if _, err := b.bot.SendMediaGroup(mg); err != nil {
+		if _, err := h.bot.SendMediaGroup(mg); err != nil {
 			l.Error().Err(err).Msg("failed to send media group")
 		}
 	}
