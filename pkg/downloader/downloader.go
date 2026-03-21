@@ -87,9 +87,31 @@ func (d *Downloader) Close() {
 	}
 }
 
-func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
+func (d *Downloader) IsURLEligible(rawURL string) bool {
+	if rawURL == "" {
+		return false
+	}
+
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {
+		return false
+	}
+	
+	return strings.Contains(u.Host, "instagram.com") ||
+		strings.Contains(u.Host, "youtube.com") ||
+		strings.Contains(u.Host, "youtu.be") ||
+		strings.Contains(u.Host, "tiktok.com") ||
+		strings.Contains(u.Host, "facebook.com") ||
+		strings.Contains(u.Host, "fb.watch")
+}
+
+func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
+	if !d.IsURLEligible(rawURL) {
+		return nil, ErrURLNotSupported
+	}
+
+	u, err := url.Parse(rawURL)
+	if err != nil {
 		return nil, ErrURLNotSupported
 	}
 
