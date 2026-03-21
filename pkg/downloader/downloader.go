@@ -23,12 +23,12 @@ type Downloader struct {
 	cookiesFilename         string
 	youtubeCookiesFilename  string
 	facebookCookiesFilename string
-	proxy                   string
+	proxyURL                string
 	l                       zerolog.Logger
 }
 
-func New(instagramCookies64, youtubeCookies64, facebookCookies64, proxy string, l zerolog.Logger) (*Downloader, error) {
-	if instagramCookies64 == "" {
+func New(igCookies, ytCookies, fbCookies64, proxyURL string, l zerolog.Logger) (*Downloader, error) {
+	if igCookies == "" {
 		return nil, fmt.Errorf("instagram cookies are required")
 	}
 
@@ -37,9 +37,9 @@ func New(instagramCookies64, youtubeCookies64, facebookCookies64, proxy string, 
 		return nil, fmt.Errorf("create temp dir: %w", err)
 	}
 
-	d := &Downloader{dstDir: dstDir, proxy: proxy, l: l}
+	d := &Downloader{dstDir: dstDir, proxyURL: proxyURL, l: l}
 
-	igCookiesJSON, err := base64.StdEncoding.DecodeString(instagramCookies64)
+	igCookiesJSON, err := base64.StdEncoding.DecodeString(igCookies)
 	if err != nil {
 		return nil, fmt.Errorf("decode instagram cookies: %w", err)
 	}
@@ -50,8 +50,8 @@ func New(instagramCookies64, youtubeCookies64, facebookCookies64, proxy string, 
 	d.cookiesFilename = cfn
 	l.Info().Msgf("instagram cookies loaded to %s", cfn)
 
-	if youtubeCookies64 != "" {
-		ytCookiesJSON, err := base64.StdEncoding.DecodeString(youtubeCookies64)
+	if ytCookies != "" {
+		ytCookiesJSON, err := base64.StdEncoding.DecodeString(ytCookies)
 		if err != nil {
 			return nil, fmt.Errorf("decode youtube cookies: %w", err)
 		}
@@ -63,8 +63,8 @@ func New(instagramCookies64, youtubeCookies64, facebookCookies64, proxy string, 
 		l.Info().Msgf("youtube cookies loaded to %s", ycfn)
 	}
 
-	if facebookCookies64 != "" {
-		fbCookiesJSON, err := base64.StdEncoding.DecodeString(facebookCookies64)
+	if fbCookies64 != "" {
+		fbCookiesJSON, err := base64.StdEncoding.DecodeString(fbCookies64)
 		if err != nil {
 			return nil, fmt.Errorf("decode facebook cookies: %w", err)
 		}
@@ -96,7 +96,7 @@ func (d *Downloader) IsURLEligible(rawURL string) bool {
 	if err != nil || u.Host == "" {
 		return false
 	}
-	
+
 	return strings.Contains(u.Host, "instagram.com") ||
 		strings.Contains(u.Host, "youtube.com") ||
 		strings.Contains(u.Host, "youtu.be") ||
@@ -208,12 +208,12 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 	return result, nil
 }
 
-// proxyArgs returns ["--proxy", d.proxy] when a proxy is configured, nil otherwise.
+// proxyArgs returns ["--proxy", d.proxyURL] when a proxy is configured, nil otherwise.
 func (d *Downloader) proxyArgs() []string {
-	if d.proxy == "" {
+	if d.proxyURL == "" {
 		return nil
 	}
-	return []string{"--proxy", d.proxy}
+	return []string{"--proxy", d.proxyURL}
 }
 
 // runCmd executes a command with the given arguments and returns (stderr, error).
