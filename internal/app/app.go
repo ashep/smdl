@@ -47,23 +47,22 @@ loop:
 			l.Info().Msg("stopped")
 			break loop
 		case upd := <-updates:
-			switch {
-			case upd.Message != nil:
-				if upd.Message.IsCommand() {
-					switch upd.Message.Command() {
-					case "start":
-						welcome := "Send me an Instagram, YouTube Shorts, TikTok, or Facebook link, and I'll download the media for you."
-						if _, err := tgAPI.Send(tgbotapi.NewMessage(upd.Message.Chat.ID, welcome)); err != nil {
-							l.Error().Err(err).Msg("failed to send welcome message")
-						}
-					default:
-						if err := msgHandler.Handle(upd.Message); err != nil {
-							l.Error().Err(err).Msg("failed to handle new message")
-						}
+			if upd.Message == nil {
+				continue
+			}
+
+			if upd.Message.IsCommand() {
+				if upd.Message.Command() == "start" {
+					welcome := "Send me an Instagram, YouTube Shorts, TikTok, or Facebook link, and I'll download the media for you."
+					if _, err := tgAPI.Send(tgbotapi.NewMessage(upd.Message.Chat.ID, welcome)); err != nil {
+						l.Error().Err(err).Msg("failed to send welcome message")
 					}
 				}
-			case upd.EditedMessage != nil:
-				l.Warn().Msg("edited messages are not supported")
+				continue
+			}
+
+			if err := msgHandler.Handle(upd.Message); err != nil {
+				l.Error().Err(err).Msg("failed to handle new message")
 			}
 		}
 	}
