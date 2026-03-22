@@ -28,10 +28,6 @@ type Downloader struct {
 }
 
 func New(igCookies, ytCookies, fbCookies64, proxyURL string, l zerolog.Logger) (*Downloader, error) {
-	if igCookies == "" {
-		return nil, fmt.Errorf("instagram cookies are required")
-	}
-
 	dstDir, err := os.MkdirTemp("", "smdl-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
@@ -39,16 +35,18 @@ func New(igCookies, ytCookies, fbCookies64, proxyURL string, l zerolog.Logger) (
 
 	d := &Downloader{dstDir: dstDir, proxyURL: proxyURL, l: l}
 
-	igCookiesJSON, err := base64.StdEncoding.DecodeString(igCookies)
-	if err != nil {
-		return nil, fmt.Errorf("decode instagram cookies: %w", err)
+	if igCookies != "" {
+		igCookiesJSON, err := base64.StdEncoding.DecodeString(igCookies)
+		if err != nil {
+			return nil, fmt.Errorf("decode instagram cookies: %w", err)
+		}
+		cfn, err := d.jsonCookiesToNetscape(string(igCookiesJSON))
+		if err != nil {
+			return nil, fmt.Errorf("failed to load instagram cookies: %v", err)
+		}
+		d.cookiesFilename = cfn
+		l.Info().Msgf("instagram cookies loaded to %s", cfn)
 	}
-	cfn, err := d.jsonCookiesToNetscape(string(igCookiesJSON))
-	if err != nil {
-		return nil, fmt.Errorf("failed to load instagram cookies: %v", err)
-	}
-	d.cookiesFilename = cfn
-	l.Info().Msgf("instagram cookies loaded to %s", cfn)
 
 	if ytCookies != "" {
 		ytCookiesJSON, err := base64.StdEncoding.DecodeString(ytCookies)
