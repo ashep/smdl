@@ -3,6 +3,7 @@ package telegram
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -78,6 +79,13 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 	files, err := h.dl.Download(rawURL)
 	if err != nil {
 		close(stopTyping)
+		if errors.Is(err, downloader.ErrNotAShort) {
+			l.Info().Str("url", rawURL).Msg("rejected non-short youtube url")
+			if _, serr := h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Only YouTube Shorts are supported. Full-length videos cannot be downloaded.")); serr != nil {
+				l.Error().Err(serr).Msg("failed to send not-a-short notice")
+			}
+			return nil
+		}
 		l.Error().Err(err).Msg("download failed")
 		if _, serr := h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Sorry, downloading this media is currently not possible.")); serr != nil {
 			l.Error().Err(serr).Msg("failed to send download error notice")

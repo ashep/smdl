@@ -18,6 +18,10 @@ func (d *Downloader) getYouTube(rawURL string) (string, error) {
 		return "", fmt.Errorf("invalid URL: %q", rawURL)
 	}
 
+	if !strings.HasPrefix(u.Path, "/shorts/") {
+		return "", ErrNotAShort
+	}
+
 	// Build a filesystem-safe name from the URL path (e.g. "/shorts/ABC123" -> "shorts_ABC123").
 	slug := strings.Trim(u.Path, "/")
 	slug = strings.ReplaceAll(slug, "/", "_")

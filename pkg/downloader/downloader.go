@@ -17,6 +17,7 @@ import (
 const maxFileSize int64 = 50 * 1024 * 1024
 
 var ErrURLNotSupported = errors.New("url not supported")
+var ErrNotAShort = errors.New("not a youtube short")
 
 type Downloader struct {
 	dstDir                  string
