@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const maxFileSize int64 = 50 * 1024 * 1024
+const MaxFileSize int64 = 50 * 1024 * 1024
 
 var ErrURLNotSupported = errors.New("url not supported")
 var ErrNotAShort = errors.New("not a youtube short")
@@ -84,6 +84,13 @@ func (d *Downloader) Close() {
 	} else {
 		d.l.Info().Str("path", d.dstDir).Msg("temp dir removed")
 	}
+	for _, f := range []string{d.cookiesFilename, d.youtubeCookiesFilename, d.facebookCookiesFilename} {
+		if f != "" {
+			if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+				d.l.Err(err).Str("path", f).Msg("remove cookie file")
+			}
+		}
+	}
 }
 
 func (d *Downloader) IsURLEligible(rawURL string) bool {
@@ -103,7 +110,7 @@ func (d *Downloader) IsURLEligible(rawURL string) bool {
 		strings.Contains(u.Host, "facebook.com") ||
 		strings.Contains(u.Host, "fb.watch") ||
 		strings.Contains(u.Host, "twitter.com") ||
-		strings.Contains(u.Host, "x.com")
+		u.Hostname() == "x.com" || strings.HasSuffix(u.Hostname(), ".x.com")
 }
 
 func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
@@ -126,7 +133,7 @@ func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
 		subDir, err = d.getTikTok(rawURL)
 	case strings.Contains(u.Host, "facebook.com"), strings.Contains(u.Host, "fb.watch"):
 		subDir, err = d.getFacebook(rawURL)
-	case strings.Contains(u.Host, "twitter.com"), strings.Contains(u.Host, "x.com"):
+	case strings.Contains(u.Host, "twitter.com"), u.Hostname() == "x.com" || strings.HasSuffix(u.Hostname(), ".x.com"):
 		subDir, err = d.getTwitter(rawURL)
 	default:
 		return nil, ErrURLNotSupported
@@ -167,7 +174,7 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 		case ".mp4", ".webm", ".mkv", ".mov", ".avi":
 			finalPath := path
 
-			if info.Size() > maxFileSize {
+			if info.Size() > MaxFileSize {
 				d.l.Info().
 					Str("file", entry.Name()).
 					Str("size", fmt.Sprintf("%.2f MB", float64(info.Size())/1024/1024)).
@@ -178,7 +185,7 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 					d.l.Error().Err(cerr).Msg("compression failed")
 				} else {
 					cinfo, serr := os.Stat(compressed)
-					if serr == nil && cinfo.Size() <= maxFileSize {
+					if serr == nil && cinfo.Size() <= MaxFileSize {
 						d.l.Info().
 							Str("size", fmt.Sprintf("%.2f MB", float64(cinfo.Size())/1024/1024)).
 							Msg("compression succeeded")
@@ -221,7 +228,15 @@ func (d *Downloader) proxyArgs() []string {
 
 // runCmd executes a command with the given arguments and returns (stderr, error).
 func (d *Downloader) runCmd(name string, args []string) (string, error) {
-	d.l.Debug().Msgf("executing %s %s", name, strings.Join(args, " "))
+	safeArgs := make([]string, len(args))
+	copy(safeArgs, args)
+	for i, a := range safeArgs {
+		if a == "--proxy" && i+1 < len(safeArgs) {
+			safeArgs[i+1] = "[redacted]"
+			break
+		}
+	}
+	d.l.Debug().Msgf("executing %s %s", name, strings.Join(safeArgs, " "))
 
 	cmd := exec.Command(name, args...)
 
