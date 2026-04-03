@@ -41,6 +41,7 @@ func (d *Downloader) getTwitter(rawURL string) (string, error) {
 	args := d.proxyArgs()
 	args = append(args,
 		"--output", outputTmpl,
+		// The /best fallback handles merged-format tweets (Twitter serves MP4s directly).
 		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]/best",
 		rawURL,
 	)
