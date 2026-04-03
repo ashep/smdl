@@ -1,6 +1,6 @@
 module github.com/ashep/smdl
 
-go 1.25.5
+go 1.26.0
 
 require (
 	github.com/ashep/go-app v0.0.12
