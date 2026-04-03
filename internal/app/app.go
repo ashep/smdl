@@ -53,7 +53,7 @@ loop:
 
 			if upd.Message.IsCommand() {
 				if upd.Message.Command() == "start" {
-					welcome := "Send me an Instagram, YouTube Shorts, TikTok, or Facebook link, and I'll download the media for you."
+					welcome := "Send me an Instagram, YouTube Shorts, TikTok, Facebook, or Twitter/X link, and I'll download the media for you."
 					if _, err := tgAPI.Send(tgbotapi.NewMessage(upd.Message.Chat.ID, welcome)); err != nil {
 						l.Error().Err(err).Msg("failed to send welcome message")
 					}
