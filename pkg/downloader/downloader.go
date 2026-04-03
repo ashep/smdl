@@ -101,7 +101,9 @@ func (d *Downloader) IsURLEligible(rawURL string) bool {
 		strings.Contains(u.Host, "youtu.be") ||
 		strings.Contains(u.Host, "tiktok.com") ||
 		strings.Contains(u.Host, "facebook.com") ||
-		strings.Contains(u.Host, "fb.watch")
+		strings.Contains(u.Host, "fb.watch") ||
+		strings.Contains(u.Host, "twitter.com") ||
+		strings.Contains(u.Host, "x.com")
 }
 
 func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
@@ -124,6 +126,8 @@ func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
 		subDir, err = d.getTikTok(rawURL)
 	case strings.Contains(u.Host, "facebook.com"), strings.Contains(u.Host, "fb.watch"):
 		subDir, err = d.getFacebook(rawURL)
+	case strings.Contains(u.Host, "twitter.com"), strings.Contains(u.Host, "x.com"):
+		subDir, err = d.getTwitter(rawURL)
 	default:
 		return nil, ErrURLNotSupported
 	}
