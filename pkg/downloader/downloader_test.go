@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -35,12 +36,12 @@ func TestDownload_TwitterRouting(t *testing.T) {
 	d := newTestDownloader(t)
 	// A twitter.com URL should not return ErrURLNotSupported.
 	_, err := d.Download("https://twitter.com/user/status/123")
-	if err == ErrURLNotSupported {
+	if errors.Is(err, ErrURLNotSupported) {
 		t.Error("twitter.com URL returned ErrURLNotSupported, expected routing to getTwitter")
 	}
 	// An x.com URL should not return ErrURLNotSupported.
 	_, err = d.Download("https://x.com/user/status/456")
-	if err == ErrURLNotSupported {
+	if errors.Is(err, ErrURLNotSupported) {
 		t.Error("x.com URL returned ErrURLNotSupported, expected routing to getTwitter")
 	}
 }
