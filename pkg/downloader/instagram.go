@@ -80,7 +80,7 @@ func (d *Downloader) getInstagram(rawURL string) (string, error) {
 		errMsg, err = d.runCmd("gallery-dl", gdlArgs)
 	}
 	if err != nil {
-		downloadErr = fmt.Errorf("%s", errMsg)
+		downloadErr = fmt.Errorf("%s: %w", errMsg, err)
 		return "", downloadErr
 	}
 

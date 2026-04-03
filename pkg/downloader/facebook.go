@@ -50,7 +50,7 @@ func (d *Downloader) getFacebook(rawURL string) (string, error) {
 
 	errMsg, err := d.runCmd("yt-dlp", args)
 	if err != nil {
-		downloadErr = fmt.Errorf("%s", errMsg)
+		downloadErr = fmt.Errorf("%s: %w", errMsg, err)
 		return "", downloadErr
 	}
 
