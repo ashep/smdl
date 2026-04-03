@@ -51,6 +51,10 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 		return nil
 	}
 
+	if msg.From == nil {
+		return nil
+	}
+
 	l := h.l.With().
 		Int64("chat_id", msg.Chat.ID).
 		Int64("user_id", msg.From.ID).
@@ -63,6 +67,7 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 
 	// Send "Typing..." every 4s while downloading (Telegram clears it after ~5s).
 	stopTyping := make(chan struct{})
+	defer close(stopTyping)
 	go func() {
 		for {
 			if _, err := h.bot.Request(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)); err != nil {
@@ -78,7 +83,6 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 
 	files, err := h.dl.Download(rawURL)
 	if err != nil {
-		close(stopTyping)
 		if errors.Is(err, downloader.ErrNotAShort) {
 			l.Info().Str("url", rawURL).Msg("rejected non-short youtube url")
 			if _, serr := h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Only YouTube Shorts are supported. Full-length videos cannot be downloaded.")); serr != nil {
@@ -128,8 +132,6 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 			media = append(media, tgbotapi.NewInputMediaPhoto(tgbotapi.FilePath(f.Path)))
 		}
 	}
-
-	close(stopTyping)
 
 	if len(media) == 0 {
 		l.Warn().Msg("no files downloaded")
