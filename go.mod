@@ -3,7 +3,7 @@ module github.com/ashep/smdl
 go 1.26.0
 
 require (
-	github.com/ashep/go-app v0.0.12
+	github.com/ashep/go-app v0.0.15
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/rs/zerolog v1.34.0
 )

@@ -13,6 +13,7 @@ func main() {
 		LoadConfigFile("config.yml").
 		LoadEnvConfig().
 		AddConsoleLogWriter().
+		AddHTTPLogWriter().
 		Run()
 
 	if err != nil {
