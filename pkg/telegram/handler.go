@@ -19,7 +19,7 @@ import (
 
 type Downloader interface {
 	IsURLEligible(rawURL string) bool
-	Download(rawURL string) ([]downloader.MediaFile, error)
+	Download(rawURL string) (*downloader.Result, error)
 }
 
 type MessageHandler struct {
@@ -81,7 +81,7 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 		}
 	}()
 
-	files, err := h.dl.Download(rawURL)
+	res, err := h.dl.Download(rawURL)
 	if err != nil {
 		if errors.Is(err, downloader.ErrNotAShort) {
 			l.Info().Str("url", rawURL).Msg("rejected non-short youtube url")
@@ -97,6 +97,7 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 		return nil
 	}
 
+	files := res.Files
 	if len(files) > 0 {
 		defer os.RemoveAll(filepath.Dir(files[0].Path))
 	}

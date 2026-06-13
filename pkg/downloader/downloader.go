@@ -114,7 +114,7 @@ func (d *Downloader) IsURLEligible(rawURL string) bool {
 		u.Hostname() == "x.com" || strings.HasSuffix(u.Hostname(), ".x.com")
 }
 
-func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
+func (d *Downloader) Download(rawURL string) (*Result, error) {
 	if !d.IsURLEligible(rawURL) {
 		return nil, ErrURLNotSupported
 	}
@@ -143,7 +143,12 @@ func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
 		return nil, err
 	}
 
-	return d.processDir(subDir)
+	files, err := d.processDir(subDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Result{Files: files, Caption: d.extractCaption(subDir)}, nil
 }
 
 func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
