@@ -3,6 +3,7 @@ package downloader
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -216,6 +217,43 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 	}
 
 	return result, nil
+}
+
+// extractCaption reads the post's caption/description from the first JSON
+// metadata sidecar written by yt-dlp (--write-info-json) or gallery-dl
+// (--write-metadata) in subDir. Returns "" when no sidecar is found or it
+// cannot be parsed; all failures are non-fatal.
+func (d *Downloader) extractCaption(subDir string) string {
+	entries, err := os.ReadDir(subDir)
+	if err != nil {
+		d.l.Warn().Err(err).Str("dir", subDir).Msg("read dir for caption")
+		return ""
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".json" {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join(subDir, entry.Name()))
+		if err != nil {
+			d.l.Warn().Err(err).Str("file", entry.Name()).Msg("read caption sidecar")
+			continue
+		}
+
+		var meta struct {
+			Description string `json:"description"`
+		}
+		if err := json.Unmarshal(data, &meta); err != nil {
+			d.l.Warn().Err(err).Str("file", entry.Name()).Msg("parse caption sidecar")
+			continue
+		}
+		if meta.Description != "" {
+			return meta.Description
+		}
+	}
+
+	return ""
 }
 
 // proxyArgs returns ["--proxy", d.proxyURL] when a proxy is configured, nil otherwise.
