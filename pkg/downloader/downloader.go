@@ -211,6 +211,10 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 		case ".jpg", ".jpeg", ".png", ".webp", ".heic", ".gif":
 			result = append(result, MediaFile{Path: path, Type: MediaTypePhoto})
 
+		case ".json":
+			// Metadata sidecar written by yt-dlp/gallery-dl; not media.
+			continue
+
 		default:
 			d.l.Warn().Str("file", entry.Name()).Msg("skipping unsupported file type")
 		}
