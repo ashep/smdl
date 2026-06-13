@@ -55,6 +55,23 @@ func TestExtractCaption_EmptyDescription(t *testing.T) {
 	}
 }
 
+func TestExtractCaption_SkipsEmptyToNextFile(t *testing.T) {
+	d := &Downloader{l: zerolog.Nop()}
+	dir := t.TempDir()
+	// "01_..." sorts before "02_..."; first has empty description.
+	if err := os.WriteFile(filepath.Join(dir, "01_empty.json"),
+		[]byte(`{"description":""}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "02_real.json"),
+		[]byte(`{"description":"real caption"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := d.extractCaption(dir); got != "real caption" {
+		t.Errorf("extractCaption = %q, want %q", got, "real caption")
+	}
+}
+
 func TestExtractCaption_MalformedJSON(t *testing.T) {
 	d := &Downloader{l: zerolog.Nop()}
 	dir := t.TempDir()

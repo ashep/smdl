@@ -171,6 +171,12 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 		path := filepath.Join(subDir, entry.Name())
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
 
+		// Metadata sidecars (yt-dlp --write-info-json / gallery-dl --write-metadata)
+		// are not media; skip them before logging/processing.
+		if ext == ".json" {
+			continue
+		}
+
 		d.l.Info().
 			Str("file", entry.Name()).
 			Str("size", fmt.Sprintf("%.2f MB", float64(info.Size())/1024/1024)).
@@ -215,10 +221,6 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 
 		case ".jpg", ".jpeg", ".png", ".webp", ".heic", ".gif":
 			result = append(result, MediaFile{Path: path, Type: MediaTypePhoto})
-
-		case ".json":
-			// Metadata sidecar written by yt-dlp/gallery-dl; not media.
-			continue
 
 		default:
 			d.l.Warn().Str("file", entry.Name()).Msg("skipping unsupported file type")
