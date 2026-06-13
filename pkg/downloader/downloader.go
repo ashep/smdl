@@ -3,6 +3,7 @@ package downloader
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -113,7 +114,7 @@ func (d *Downloader) IsURLEligible(rawURL string) bool {
 		u.Hostname() == "x.com" || strings.HasSuffix(u.Hostname(), ".x.com")
 }
 
-func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
+func (d *Downloader) Download(rawURL string) (*Result, error) {
 	if !d.IsURLEligible(rawURL) {
 		return nil, ErrURLNotSupported
 	}
@@ -142,7 +143,12 @@ func (d *Downloader) Download(rawURL string) ([]MediaFile, error) {
 		return nil, err
 	}
 
-	return d.processDir(subDir)
+	files, err := d.processDir(subDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Result{Files: files, Caption: d.extractCaption(subDir)}, nil
 }
 
 func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
@@ -164,6 +170,12 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 
 		path := filepath.Join(subDir, entry.Name())
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
+
+		// Metadata sidecars (yt-dlp --write-info-json / gallery-dl --write-metadata)
+		// are not media; skip them before logging/processing.
+		if ext == ".json" {
+			continue
+		}
 
 		d.l.Info().
 			Str("file", entry.Name()).
@@ -216,6 +228,43 @@ func (d *Downloader) processDir(subDir string) ([]MediaFile, error) {
 	}
 
 	return result, nil
+}
+
+// extractCaption reads the post's caption/description from the first JSON
+// metadata sidecar written by yt-dlp (--write-info-json) or gallery-dl
+// (--write-metadata) in subDir. Returns "" when no sidecar is found or it
+// cannot be parsed; all failures are non-fatal.
+func (d *Downloader) extractCaption(subDir string) string {
+	entries, err := os.ReadDir(subDir)
+	if err != nil {
+		d.l.Warn().Err(err).Str("dir", subDir).Msg("read dir for caption")
+		return ""
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".json" {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join(subDir, entry.Name()))
+		if err != nil {
+			d.l.Warn().Err(err).Str("file", entry.Name()).Msg("read caption sidecar")
+			continue
+		}
+
+		var meta struct {
+			Description string `json:"description"`
+		}
+		if err := json.Unmarshal(data, &meta); err != nil {
+			d.l.Warn().Err(err).Str("file", entry.Name()).Msg("parse caption sidecar")
+			continue
+		}
+		if meta.Description != "" {
+			return meta.Description
+		}
+	}
+
+	return ""
 }
 
 // proxyArgs returns ["--proxy", d.proxyURL] when a proxy is configured, nil otherwise.

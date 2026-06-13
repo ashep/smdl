@@ -50,6 +50,7 @@ func (d *Downloader) getInstagram(rawURL string) (string, error) {
 		"--no-playlist",
 		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]/best",
 		"--cookies", d.cookiesFilename,
+		"--write-info-json",
 	)
 
 	// First attempt with yt-dlp (handles videos and carousels).
@@ -75,6 +76,7 @@ func (d *Downloader) getInstagram(rawURL string) (string, error) {
 			"-D", subDir,
 			"--filename", "{num:>02}_{post_id}.{extension}",
 			"--cookies", d.cookiesFilename,
+			"--write-metadata",
 			rawURL,
 		)
 		errMsg, err = d.runCmd("gallery-dl", gdlArgs)

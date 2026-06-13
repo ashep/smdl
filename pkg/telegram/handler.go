@@ -17,9 +17,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// captionLimit is Telegram's media-caption cap, measured in UTF-16 code units
+// (not runes or bytes). Characters above the BMP — most emoji — count as 2.
+const captionLimit = 1024
+
 type Downloader interface {
 	IsURLEligible(rawURL string) bool
-	Download(rawURL string) ([]downloader.MediaFile, error)
+	Download(rawURL string) (*downloader.Result, error)
 }
 
 type MessageHandler struct {
@@ -81,7 +85,7 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 		}
 	}()
 
-	files, err := h.dl.Download(rawURL)
+	res, err := h.dl.Download(rawURL)
 	if err != nil {
 		if errors.Is(err, downloader.ErrNotAShort) {
 			l.Info().Str("url", rawURL).Msg("rejected non-short youtube url")
@@ -97,6 +101,7 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 		return nil
 	}
 
+	files := res.Files
 	if len(files) > 0 {
 		defer os.RemoveAll(filepath.Dir(files[0].Path))
 	}
@@ -149,7 +154,7 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 		}
 		batch := media[i:end]
 		if i == 0 {
-			batch[0] = withCaption(batch[0], rawURL)
+			batch[0] = withCaption(batch[0], truncateCaption(rawURL, res.Caption))
 		}
 		mg := tgbotapi.NewMediaGroup(msg.Chat.ID, batch)
 		if _, err := h.bot.SendMediaGroup(mg); err != nil {
@@ -175,6 +180,60 @@ func withCaption(item interface{}, caption string) interface{} {
 	default:
 		return item
 	}
+}
+
+// utf16Len returns the number of UTF-16 code units needed to encode s, which
+// is how Telegram measures caption/message length. Code points above U+FFFF
+// (e.g. most emoji) require a surrogate pair and count as 2.
+func utf16Len(s string) int {
+	n := 0
+	for _, r := range s {
+		if r > 0xFFFF {
+			n += 2
+		} else {
+			n++
+		}
+	}
+	return n
+}
+
+// truncateCaption builds the message caption: the link, a blank line, and the
+// post text, cut on a rune boundary with a trailing ellipsis so the whole
+// caption fits within captionLimit. When postText is empty it returns rawURL
+// unchanged.
+func truncateCaption(rawURL, postText string) string {
+	if postText == "" {
+		return rawURL
+	}
+
+	prefix := rawURL + "\n\n"
+	budget := captionLimit - utf16Len(prefix)
+	if budget <= 0 {
+		// URL alone already at/over the limit; nothing to add.
+		return rawURL
+	}
+
+	if utf16Len(postText) <= budget {
+		return prefix + postText
+	}
+
+	// Truncate, reserving 1 UTF-16 unit for the trailing ellipsis. Append whole
+	// runes until the next one would exceed the budget, so we never split a rune.
+	var b strings.Builder
+	used := 0
+	for _, r := range postText {
+		w := 1
+		if r > 0xFFFF {
+			w = 2
+		}
+		if used+w > budget-1 {
+			break
+		}
+		b.WriteRune(r)
+		used += w
+	}
+
+	return prefix + b.String() + "…"
 }
 
 // newInputMediaVideo creates an InputMediaVideo and attempts to set the correct
