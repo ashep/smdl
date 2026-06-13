@@ -17,6 +17,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// captionLimit is Telegram's media-caption length cap (1024 UTF-16 code
+// units). We count runes and target a value slightly under the hard limit to
+// stay clear of the rune-vs-UTF-16 counting difference for multi-byte text.
+const captionLimit = 1000
+
 type Downloader interface {
 	IsURLEligible(rawURL string) bool
 	Download(rawURL string) (*downloader.Result, error)
@@ -150,7 +155,7 @@ func (h *MessageHandler) Handle(msg *tgbotapi.Message) error {
 		}
 		batch := media[i:end]
 		if i == 0 {
-			batch[0] = withCaption(batch[0], rawURL)
+			batch[0] = withCaption(batch[0], truncateCaption(rawURL, res.Caption))
 		}
 		mg := tgbotapi.NewMediaGroup(msg.Chat.ID, batch)
 		if _, err := h.bot.SendMediaGroup(mg); err != nil {
@@ -176,6 +181,31 @@ func withCaption(item interface{}, caption string) interface{} {
 	default:
 		return item
 	}
+}
+
+// truncateCaption builds the message caption: the link, a blank line, and the
+// post text, cut on a rune boundary with a trailing ellipsis so the whole
+// caption fits within captionLimit. When postText is empty it returns rawURL
+// unchanged.
+func truncateCaption(rawURL, postText string) string {
+	if postText == "" {
+		return rawURL
+	}
+
+	prefix := rawURL + "\n\n"
+	budget := captionLimit - len([]rune(prefix))
+	if budget <= 0 {
+		// URL alone already at/over the limit; nothing to add.
+		return rawURL
+	}
+
+	runes := []rune(postText)
+	if len(runes) <= budget {
+		return prefix + postText
+	}
+
+	// Reserve one rune for the ellipsis.
+	return prefix + string(runes[:budget-1]) + "…"
 }
 
 // newInputMediaVideo creates an InputMediaVideo and attempts to set the correct
