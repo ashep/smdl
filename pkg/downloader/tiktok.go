@@ -41,6 +41,7 @@ func (d *Downloader) getTikTok(rawURL string) (string, error) {
 	args = append(args,
 		"--output", outputTmpl,
 		"--format", "bestvideo[filesize<50M]+bestaudio/best[filesize<50M]/best",
+		"--write-info-json",
 		rawURL,
 	)
 
