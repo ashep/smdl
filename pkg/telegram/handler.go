@@ -17,10 +17,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// captionLimit is Telegram's media-caption length cap (1024 UTF-16 code
-// units). We count runes and target a value slightly under the hard limit to
-// stay clear of the rune-vs-UTF-16 counting difference for multi-byte text.
-const captionLimit = 1000
+// captionLimit is Telegram's media-caption cap, measured in UTF-16 code units
+// (not runes or bytes). Characters above the BMP — most emoji — count as 2.
+const captionLimit = 1024
 
 type Downloader interface {
 	IsURLEligible(rawURL string) bool
@@ -183,6 +182,21 @@ func withCaption(item interface{}, caption string) interface{} {
 	}
 }
 
+// utf16Len returns the number of UTF-16 code units needed to encode s, which
+// is how Telegram measures caption/message length. Code points above U+FFFF
+// (e.g. most emoji) require a surrogate pair and count as 2.
+func utf16Len(s string) int {
+	n := 0
+	for _, r := range s {
+		if r > 0xFFFF {
+			n += 2
+		} else {
+			n++
+		}
+	}
+	return n
+}
+
 // truncateCaption builds the message caption: the link, a blank line, and the
 // post text, cut on a rune boundary with a trailing ellipsis so the whole
 // caption fits within captionLimit. When postText is empty it returns rawURL
@@ -193,19 +207,33 @@ func truncateCaption(rawURL, postText string) string {
 	}
 
 	prefix := rawURL + "\n\n"
-	budget := captionLimit - len([]rune(prefix))
+	budget := captionLimit - utf16Len(prefix)
 	if budget <= 0 {
 		// URL alone already at/over the limit; nothing to add.
 		return rawURL
 	}
 
-	runes := []rune(postText)
-	if len(runes) <= budget {
+	if utf16Len(postText) <= budget {
 		return prefix + postText
 	}
 
-	// Reserve one rune for the ellipsis.
-	return prefix + string(runes[:budget-1]) + "…"
+	// Truncate, reserving 1 UTF-16 unit for the trailing ellipsis. Append whole
+	// runes until the next one would exceed the budget, so we never split a rune.
+	var b strings.Builder
+	used := 0
+	for _, r := range postText {
+		w := 1
+		if r > 0xFFFF {
+			w = 2
+		}
+		if used+w > budget-1 {
+			break
+		}
+		b.WriteRune(r)
+		used += w
+	}
+
+	return prefix + b.String() + "…"
 }
 
 // newInputMediaVideo creates an InputMediaVideo and attempts to set the correct
