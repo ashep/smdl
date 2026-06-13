@@ -23,6 +23,13 @@ type MediaFile struct {
 	Type MediaType
 }
 
+// Result is the outcome of a Download: the processed media files plus the
+// post's caption/description text (empty when none was found).
+type Result struct {
+	Files   []MediaFile
+	Caption string
+}
+
 // compressVideo re-encodes a video to 720p at CRF 28 using ffmpeg,
 // writing the result to a temp file in the same directory as inputPath.
 func compressVideo(inputPath string) (string, error) {
