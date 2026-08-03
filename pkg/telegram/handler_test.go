@@ -38,3 +38,25 @@ func TestIsAllowed_DeniesUnknownAndEmptyUsername(t *testing.T) {
 		t.Error("expected an empty username to be denied when the list is non-empty")
 	}
 }
+
+func TestIsAllowed_IgnoresEmptyAndWhitespaceEntries(t *testing.T) {
+	h := NewMessageHandler(nil, nil, []string{"alice", "", "   "}, zerolog.Nop())
+
+	if h.IsAllowed("") {
+		t.Error("expected an empty username to be denied even when the list contains an empty/whitespace entry")
+	}
+	if !h.IsAllowed("alice") {
+		t.Error("expected 'alice' to still be allowed")
+	}
+}
+
+func TestIsAllowed_StripsAtPrefixAndWhitespace(t *testing.T) {
+	h := NewMessageHandler(nil, nil, []string{" @Alice ", "@bob"}, zerolog.Nop())
+
+	if !h.IsAllowed("alice") {
+		t.Error("expected '@Alice' entry (trimmed, @-stripped, lower-cased) to match 'alice'")
+	}
+	if !h.IsAllowed("bob") {
+		t.Error("expected '@bob' entry to match 'bob'")
+	}
+}

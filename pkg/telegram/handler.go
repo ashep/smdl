@@ -36,6 +36,11 @@ type MessageHandler struct {
 func NewMessageHandler(bot *tgbotapi.BotAPI, dl Downloader, users []string, l zerolog.Logger) *MessageHandler {
 	allowed := make(map[string]struct{}, len(users))
 	for _, u := range users {
+		u = strings.TrimSpace(u)
+		u = strings.TrimPrefix(u, "@")
+		if u == "" {
+			continue
+		}
 		allowed[strings.ToLower(u)] = struct{}{}
 	}
 
