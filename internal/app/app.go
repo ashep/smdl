@@ -27,7 +27,7 @@ func Run(rt *runner.Runtime[Config]) error {
 		return fmt.Errorf("tgbotapi.NewBotAPI: %w", err)
 	}
 
-	runBot(ctx, tgAPI, telegram.NewMessageHandler(tgAPI, dl, l), l)
+	runBot(ctx, tgAPI, telegram.NewMessageHandler(tgAPI, dl, cfg.Telegram.Users, l), l)
 
 	return nil
 }
@@ -48,6 +48,18 @@ loop:
 			break loop
 		case upd := <-updates:
 			if upd.Message == nil {
+				continue
+			}
+
+			var userName string
+			if upd.Message.From != nil {
+				userName = upd.Message.From.UserName
+			}
+			if !msgHandler.IsAllowed(userName) {
+				l.Debug().
+					Int64("chat_id", upd.Message.Chat.ID).
+					Str("user_name", userName).
+					Msg("ignoring request from disallowed user")
 				continue
 			}
 

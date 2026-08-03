@@ -1,7 +1,8 @@
 package app
 
 type Telegram struct {
-	Token string `yaml:"token"`
+	Token string   `yaml:"token"`
+	Users []string `yaml:"users"`
 }
 
 type Instagram struct {
