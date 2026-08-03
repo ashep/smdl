@@ -32,6 +32,16 @@ func Run(rt *runner.Runtime[Config]) error {
 	return nil
 }
 
+// messageSenderUsername returns the Telegram username of the message's
+// sender, or "" if the sender is unknown (e.g. an anonymous group admin
+// or a message with no From at all).
+func messageSenderUsername(msg *tgbotapi.Message) string {
+	if msg.From == nil {
+		return ""
+	}
+	return msg.From.UserName
+}
+
 func runBot(ctx context.Context, tgAPI *tgbotapi.BotAPI, msgHandler *telegram.MessageHandler, l zerolog.Logger) {
 	cfg := tgbotapi.NewUpdate(0)
 	cfg.Timeout = 60
@@ -51,10 +61,7 @@ loop:
 				continue
 			}
 
-			var userName string
-			if upd.Message.From != nil {
-				userName = upd.Message.From.UserName
-			}
+			userName := messageSenderUsername(upd.Message)
 			if !msgHandler.IsAllowed(userName) {
 				l.Debug().
 					Int64("chat_id", upd.Message.Chat.ID).
