@@ -28,6 +28,7 @@ brew install yt-dlp gallery-dl ffmpeg
 # config.yml
 telegram:
   token: YOUR_TELEGRAM_BOT_TOKEN
+  users: [alice, bob]  # optional; when set, only these Telegram usernames may use the bot
 
 instagram:
   cookies: BASE64_ENCODED_COOKIES_JSON  # required
