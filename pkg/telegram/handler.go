@@ -27,17 +27,35 @@ type Downloader interface {
 }
 
 type MessageHandler struct {
-	bot *tgbotapi.BotAPI
-	dl  Downloader
-	l   zerolog.Logger
+	bot          *tgbotapi.BotAPI
+	dl           Downloader
+	allowedUsers map[string]struct{}
+	l            zerolog.Logger
 }
 
-func NewMessageHandler(bot *tgbotapi.BotAPI, dl Downloader, l zerolog.Logger) *MessageHandler {
-	return &MessageHandler{
-		bot: bot,
-		dl:  dl,
-		l:   l,
+func NewMessageHandler(bot *tgbotapi.BotAPI, dl Downloader, users []string, l zerolog.Logger) *MessageHandler {
+	allowed := make(map[string]struct{}, len(users))
+	for _, u := range users {
+		allowed[strings.ToLower(u)] = struct{}{}
 	}
+
+	return &MessageHandler{
+		bot:          bot,
+		dl:           dl,
+		allowedUsers: allowed,
+		l:            l,
+	}
+}
+
+// IsAllowed reports whether username may use the bot. An empty allow-list
+// means no restriction is configured, so every username is allowed.
+func (h *MessageHandler) IsAllowed(username string) bool {
+	if len(h.allowedUsers) == 0 {
+		return true
+	}
+
+	_, ok := h.allowedUsers[strings.ToLower(username)]
+	return ok
 }
 
 // Handle processes an incoming Telegram message. Plain-text messages are
