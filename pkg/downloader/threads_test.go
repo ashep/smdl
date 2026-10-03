@@ -79,9 +79,9 @@ func TestThreadsPostCode(t *testing.T) {
 
 func TestParseThreadsPost_Photo(t *testing.T) {
 	html := threadsPage(t, map[string]any{
-		"code":           "PHOTO1",
-		"media_type":     1,
-		"caption":        map[string]any{"text": "photo caption"},
+		"code":       "PHOTO1",
+		"media_type": 1,
+		"caption":    map[string]any{"text": "photo caption"},
 		"image_versions2": map[string]any{"candidates": []any{
 			map[string]any{"url": "https://cdn/small.jpg", "width": 320, "height": 320},
 			map[string]any{"url": "https://cdn/big.jpg", "width": 1440, "height": 1800},
@@ -171,6 +171,36 @@ func TestParseThreadsPost_TextOnly(t *testing.T) {
 	}
 }
 
+func TestParseThreadsPost_LinkedInlineMedia(t *testing.T) {
+	html := threadsPage(t, map[string]any{
+		"code":            "TEXT1",
+		"media_type":      19,
+		"caption":         map[string]any{"text": "look at this reel"},
+		"image_versions2": map[string]any{},
+		"text_post_app_info": map[string]any{
+			"linked_inline_media": map[string]any{
+				"code":            "REEL1",
+				"media_type":      2,
+				"caption":         map[string]any{"text": "reel caption"},
+				"image_versions2": imageVersions("https://cdn/reel-thumb.jpg"),
+				"video_versions":  []any{map[string]any{"url": "https://cdn/reel.mp4"}},
+			},
+		},
+	})
+
+	post, err := parseThreadsPost(html, "TEXT1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if post.Caption != "look at this reel" {
+		t.Errorf("caption = %q, want the post's own text", post.Caption)
+	}
+	want := []threadsMedia{{URL: "https://cdn/reel.mp4", Video: true}}
+	if fmt.Sprint(post.Media) != fmt.Sprint(want) {
+		t.Errorf("media = %v, want %v", post.Media, want)
+	}
+}
+
 func TestParseThreadsPost_NotFound(t *testing.T) {
 	html := threadsPage(t, map[string]any{"code": "OTHER", "media_type": 1})
 	if _, err := parseThreadsPost(html, "MISSING"); err == nil {
@@ -233,6 +263,42 @@ func TestGetThreads_DownloadsMediaAndCaption(t *testing.T) {
 
 	if got := d.extractCaption(subDir); got != "hello threads" {
 		t.Errorf("caption = %q, want %q", got, "hello threads")
+	}
+}
+
+func TestGetThreads_FollowsShareLink(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/share/ABC123/":
+			http.Redirect(w, r, "/@user/post/POST1?xmt=abc&slof=1", http.StatusFound)
+		case "/@user/post/POST1":
+			fmt.Fprint(w, threadsPage(t, map[string]any{
+				"code":            "POST1",
+				"media_type":      1,
+				"image_versions2": imageVersions(srv.URL + "/img.jpg"),
+			}))
+		case "/img.jpg":
+			w.Header().Set("Content-Type", "image/jpeg")
+			fmt.Fprint(w, "IMG")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	d := &Downloader{dstDir: t.TempDir(), l: zerolog.Nop()}
+	subDir, err := d.getThreads(srv.URL + "/share/ABC123/")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := d.processDir(subDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || files[0].Type != MediaTypePhoto {
+		t.Fatalf("got %+v, want one photo", files)
 	}
 }
 

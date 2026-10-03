@@ -54,26 +54,54 @@ type threadsMediaObject struct {
 	Caption *struct {
 		Text string `json:"text"`
 	} `json:"caption"`
-	CarouselMedia []threadsMediaItem `json:"carousel_media"`
+	CarouselMedia   []threadsMediaItem `json:"carousel_media"`
+	TextPostAppInfo *struct {
+		// LinkedInlineMedia is an Instagram post embedded into a text post.
+		LinkedInlineMedia *threadsMediaObject `json:"linked_inline_media"`
+	} `json:"text_post_app_info"`
+}
+
+// media returns the post's own media, falling back to the embedded Instagram
+// post for text posts that link one.
+func (o *threadsMediaObject) media() []threadsMedia {
+	items := o.CarouselMedia
+	if len(items) == 0 {
+		items = []threadsMediaItem{o.threadsMediaItem}
+	}
+
+	var res []threadsMedia
+	for _, it := range items {
+		if m, ok := it.media(); ok {
+			res = append(res, m)
+		}
+	}
+
+	if len(res) == 0 && o.TextPostAppInfo != nil && o.TextPostAppInfo.LinkedInlineMedia != nil {
+		return o.TextPostAppInfo.LinkedInlineMedia.media()
+	}
+
+	return res
 }
 
 // getThreads downloads images and videos from a public Threads post into a
 // subdirectory of dstDir and returns the subdirectory path. Neither yt-dlp nor
 // gallery-dl support Threads, so the post page is fetched and parsed directly.
 func (d *Downloader) getThreads(rawURL string) (string, error) {
-	code, err := threadsPostCode(rawURL)
-	if err != nil {
-		return "", err
-	}
-
 	client, err := d.httpClient()
 	if err != nil {
 		return "", err
 	}
 
-	page, err := httpGet(client, rawURL, threadsUserAgent)
+	// Share links (/share/XXX) redirect to the post URL, so the shortcode is
+	// taken from the final URL after redirects.
+	page, finalURL, err := httpGet(client, rawURL, threadsUserAgent)
 	if err != nil {
 		return "", fmt.Errorf("fetch threads page: %w", err)
+	}
+
+	code, err := threadsPostCode(finalURL)
+	if err != nil {
+		return "", err
 	}
 
 	post, err := parseThreadsPost(string(page), code)
@@ -159,19 +187,9 @@ func parseThreadsPost(html, code string) (*threadsPost, error) {
 			return nil, fmt.Errorf("decode threads post: %w", err)
 		}
 
-		post := &threadsPost{}
+		post := &threadsPost{Media: obj.media()}
 		if obj.Caption != nil {
 			post.Caption = obj.Caption.Text
-		}
-
-		items := obj.CarouselMedia
-		if len(items) == 0 {
-			items = []threadsMediaItem{obj.threadsMediaItem}
-		}
-		for _, it := range items {
-			if m, ok := it.media(); ok {
-				post.Media = append(post.Media, m)
-			}
 		}
 
 		return post, nil
@@ -293,22 +311,29 @@ func (d *Downloader) httpClient() (*http.Client, error) {
 	return &http.Client{Transport: transport, Timeout: 5 * time.Minute}, nil
 }
 
-func httpGet(client *http.Client, rawURL, userAgent string) ([]byte, error) {
+// httpGet fetches rawURL, following redirects, and returns the response body
+// and the final URL.
+func httpGet(client *http.Client, rawURL, userAgent string) ([]byte, string, error) {
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	req.Header.Set("User-Agent", userAgent)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %s", resp.Status)
+		return nil, "", fmt.Errorf("unexpected status %s", resp.Status)
 	}
 
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return body, resp.Request.URL.String(), nil
 }
