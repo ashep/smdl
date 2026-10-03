@@ -1,6 +1,6 @@
 # smdl — Social Media Downloader Bot
 
-A Telegram bot that downloads media from Instagram, YouTube, TikTok, and Facebook and sends it back to you.
+A Telegram bot that downloads media from Instagram, YouTube, TikTok, Facebook, Twitter/X, and Threads and sends it back to you.
 
 ## Features
 
@@ -8,6 +8,7 @@ A Telegram bot that downloads media from Instagram, YouTube, TikTok, and Faceboo
 - **YouTube** — videos and Shorts
 - **TikTok** — videos
 - **Facebook** — videos
+- **Threads** — public posts (images, videos, carousels)
 - Oversized videos (>50 MB) are automatically compressed with ffmpeg before sending
 - Non-MP4 videos (WebM, MKV, MOV, AVI) are converted to MP4 for inline playback
 - Typing indicator while downloading/processing
@@ -63,7 +64,7 @@ go run main.go
 
 ## Usage
 
-Send an Instagram, YouTube, TikTok, or Facebook URL to the bot — it replies with the media files.
+Send an Instagram, YouTube, TikTok, Facebook, Twitter/X, or Threads URL to the bot — it replies with the media files.
 
 ## License
 

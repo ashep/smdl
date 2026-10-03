@@ -111,7 +111,18 @@ func (d *Downloader) IsURLEligible(rawURL string) bool {
 		strings.Contains(u.Host, "facebook.com") ||
 		strings.Contains(u.Host, "fb.watch") ||
 		strings.Contains(u.Host, "twitter.com") ||
-		u.Hostname() == "x.com" || strings.HasSuffix(u.Hostname(), ".x.com")
+		u.Hostname() == "x.com" || strings.HasSuffix(u.Hostname(), ".x.com") ||
+		isThreadsHost(u.Hostname())
+}
+
+// isThreadsHost reports whether host is threads.com or threads.net (or a subdomain).
+func isThreadsHost(host string) bool {
+	for _, h := range []string{"threads.com", "threads.net"} {
+		if host == h || strings.HasSuffix(host, "."+h) {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Downloader) Download(rawURL string) (*Result, error) {
@@ -136,6 +147,8 @@ func (d *Downloader) Download(rawURL string) (*Result, error) {
 		subDir, err = d.getFacebook(rawURL)
 	case strings.Contains(u.Host, "twitter.com"), u.Hostname() == "x.com" || strings.HasSuffix(u.Hostname(), ".x.com"):
 		subDir, err = d.getTwitter(rawURL)
+	case isThreadsHost(u.Hostname()):
+		subDir, err = d.getThreads(rawURL)
 	default:
 		return nil, ErrURLNotSupported
 	}
