@@ -37,24 +37,6 @@ func (d *Downloader) getTikTok(rawURL string) (string, error) {
 		}
 	}()
 
-	// TikTok photo slideshows (/photo/ URLs) are not supported by yt-dlp;
-	// use gallery-dl directly for those.
-	if strings.Contains(u.Path, "/photo/") {
-		gdlArgs := d.proxyArgs()
-		gdlArgs = append(gdlArgs,
-			"-D", subDir,
-			"--filename", "{num:>02}_{post_id}.{extension}",
-			"--write-metadata",
-			rawURL,
-		)
-		errMsg, err := d.runCmd("gallery-dl", gdlArgs)
-		if err != nil {
-			downloadErr = fmt.Errorf("%s: %w", errMsg, err)
-			return "", downloadErr
-		}
-		return subDir, nil
-	}
-
 	outputTmpl := filepath.Join(subDir, "%(title)s.%(ext)s")
 
 	args := d.proxyArgs()
@@ -66,6 +48,31 @@ func (d *Downloader) getTikTok(rawURL string) (string, error) {
 	)
 
 	errMsg, err := d.runCmd("yt-dlp", args)
+	// Photo slideshows (including short URLs that resolve to /photo/) are not
+	// supported by yt-dlp; fall back to gallery-dl on "Unsupported URL".
+	if err != nil && strings.Contains(errMsg, "Unsupported URL") {
+		d.l.Info().Msg("unsupported by yt-dlp, trying gallery-dl")
+
+		if entries, _ := os.ReadDir(subDir); len(entries) > 0 {
+			if err := os.RemoveAll(subDir); err != nil {
+				downloadErr = fmt.Errorf("clear subdir: %w", err)
+				return "", downloadErr
+			}
+			if err := os.MkdirAll(subDir, 0o755); err != nil {
+				downloadErr = fmt.Errorf("recreate subdir: %w", err)
+				return "", downloadErr
+			}
+		}
+
+		gdlArgs := d.proxyArgs()
+		gdlArgs = append(gdlArgs,
+			"-D", subDir,
+			"--filename", "{num:>02}_{post_id}.{extension}",
+			"--write-metadata",
+			rawURL,
+		)
+		errMsg, err = d.runCmd("gallery-dl", gdlArgs)
+	}
 	if err != nil {
 		downloadErr = fmt.Errorf("%s: %w", errMsg, err)
 		return "", downloadErr
