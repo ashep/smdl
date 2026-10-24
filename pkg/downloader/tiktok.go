@@ -8,8 +8,10 @@ import (
 	"strings"
 )
 
-// getTikTok downloads a TikTok video into a subdirectory of dstDir and returns
-// the subdirectory path. It shells out to yt-dlp which must be installed on the system.
+// getTikTok downloads a TikTok video or photo post into a subdirectory of
+// dstDir and returns the subdirectory path. Videos are handled by yt-dlp;
+// photo slideshows (URLs containing "/photo/") fall back to gallery-dl because
+// yt-dlp does not support them.
 func (d *Downloader) getTikTok(rawURL string) (string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {
@@ -34,6 +36,24 @@ func (d *Downloader) getTikTok(rawURL string) (string, error) {
 			os.RemoveAll(subDir)
 		}
 	}()
+
+	// TikTok photo slideshows (/photo/ URLs) are not supported by yt-dlp;
+	// use gallery-dl directly for those.
+	if strings.Contains(u.Path, "/photo/") {
+		gdlArgs := d.proxyArgs()
+		gdlArgs = append(gdlArgs,
+			"-D", subDir,
+			"--filename", "{num:>02}_{post_id}.{extension}",
+			"--write-metadata",
+			rawURL,
+		)
+		errMsg, err := d.runCmd("gallery-dl", gdlArgs)
+		if err != nil {
+			downloadErr = fmt.Errorf("%s: %w", errMsg, err)
+			return "", downloadErr
+		}
+		return subDir, nil
+	}
 
 	outputTmpl := filepath.Join(subDir, "%(title)s.%(ext)s")
 
